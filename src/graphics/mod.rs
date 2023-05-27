@@ -20,15 +20,18 @@ impl Graphics {
         gl_attr.set_multisample_samples(4);
 
         let window = video_subsystem
-            .window(
-                "Demo: Egui backend for SDL2 + GL",
-                800,
-                600,
-            )
+            .window("Emulator", 800, 600)
             .opengl()
             .resizable()
             .build()
             .unwrap();
+
+        // make gl context current
+        let _gl_context = window.gl_create_context().unwrap();
+        let _ = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as _); // Load OpenGL function pointers
+
+        // VSync on
+        video_subsystem.gl_set_swap_interval(1).unwrap();
 
         let _ctx = window.gl_create_context().unwrap();
 
@@ -52,6 +55,5 @@ impl Graphics {
             gl::ClearColor(0.3, 0.6, 0.3, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-
     }
 }
