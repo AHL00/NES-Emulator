@@ -194,4 +194,30 @@ mod test {
         assert_eq!(emulator.cpu.acc, 0x21);
         assert_eq!(emulator.cpu.idx_x, 0x21);
     }
+
+    #[test]
+    fn jmp_abs() {
+        let mut emulator = Emulator::new();
+
+        emulator.memory.borrow_mut()[0x0001] = 0x10;
+        emulator.memory.borrow_mut()[0x0000] = 0x00;
+
+        run(&mut emulator, vec![0x4C, 0x00, 0x00], 3);
+
+        assert_eq!(emulator.cpu.pc, 0x1000);
+    }
+
+    #[test]
+    fn jmp_indirect() {
+        let mut emulator = Emulator::new();
+
+        emulator.memory.borrow_mut()[0x0001] = 0x10;
+        emulator.memory.borrow_mut()[0x0000] = 0x00; // 0x1000 is the target address
+        emulator.memory.borrow_mut()[0x1001] = 0x10;
+        emulator.memory.borrow_mut()[0x1000] = 0x20; // target address points to 0x1020
+
+        run(&mut emulator, vec![0x6C, 0x00, 0x00], 5);
+
+        assert_eq!(emulator.cpu.pc, 0x1020);
+    }
 }

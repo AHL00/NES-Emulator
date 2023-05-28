@@ -81,22 +81,24 @@ impl CPU {
     }
 
     pub fn cycle(&mut self) {
-        //print!("cycle!");
+        //print!("PC: {:04X} | ", self.pc);
         // sleep for cycles until sleep_cycles is 0
         if self.sleep_cycles > 0 {
             self.sleep_cycles -= 1;
-            //println!("sleeping");
+            //println!("/\\ sleeping");
             return;
         }
         //println!();
 
         // Fetch
         let opcode = self.memory.borrow_mut()[self.pc as u16];
+        let mut dont_increment_pc = false;
 
         // Decode
         match opcode {
             // <-- LDA -->
-            0xA9 => { // <-- [ Immediate ] -->
+            0xA9 => {
+                // <-- [ Immediate ] -->
                 // Load accumulator with immediate value
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
@@ -110,7 +112,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xA5 => { // <-- [ Zero Page ] -->
+            0xA5 => {
+                // <-- [ Zero Page ] -->
                 // Load accumulator with zero page value
                 // 2 bytes, 3 cycles
                 self.sleep_cycles = 2;
@@ -125,7 +128,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB5 => { // <-- [ Zero Page, X ] -->
+            0xB5 => {
+                // <-- [ Zero Page, X ] -->
                 // Load accumulator with zero page value
                 // 2 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -140,7 +144,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xAD => { // <-- [ Absolute ] -->
+            0xAD => {
+                // <-- [ Absolute ] -->
                 // Load accumulator with data at absolute value
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -155,7 +160,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xBD => { // <-- [ Absolute, X ] -->
+            0xBD => {
+                // <-- [ Absolute, X ] -->
                 // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -176,7 +182,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB9 => { // <-- [ Absolute, Y ] -->
+            0xB9 => {
+                // <-- [ Absolute, Y ] -->
                 // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -197,7 +204,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xA1 => { // <-- [ Indirect, X ] -->
+            0xA1 => {
+                // <-- [ Indirect, X ] -->
                 // Load accumulator with data at indirect value + X
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
@@ -212,7 +220,8 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB1 => { // <-- [ Indirect, Y ] -->
+            0xB1 => {
+                // <-- [ Indirect, Y ] -->
                 // Load accumulator with data at indirect value + Y
                 // 2 bytes, 5 cycles
                 self.sleep_cycles = 4;
@@ -222,8 +231,7 @@ impl CPU {
                 self.acc = self.memory.borrow()[addr];
 
                 // if page crossed, add 1 cycle
-                let oper = self.memory.borrow()[self.pc + 1];
-                let base_addr = self.memory.borrow().read_u16(oper as u16);
+                let base_addr = self.get_operand_addr(AddressingMode::Indirect);
                 if self.check_page_cross(base_addr, addr) {
                     self.sleep_cycles += 1;
                 }
@@ -234,7 +242,35 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            
+
+            // <-- JMP -->
+            0x4C => {
+                // <-- [ Absolute ] -->
+                // Jump to absolute address
+                // 3 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                // set PC to value
+                let addr = self.get_operand_addr(AddressingMode::Absolute);
+                self.pc = self.memory.borrow().read_u16(addr);
+
+                // PC is incremented at end of cycle
+                dont_increment_pc = true;
+            }
+            0x6C => {
+                // <-- [ Indirect ] -->
+                // Jump to indirect address
+                // 3 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                // set PC to value
+                let addr = self.get_operand_addr(AddressingMode::Indirect);
+                self.pc = self.memory.borrow().read_u16(addr);
+
+                // PC is incremented at end of cycle
+                dont_increment_pc = true;
+            }
+
             // <-- TAX -->
             0xAA => {
                 // <-- TAX [ None ] -->
@@ -252,7 +288,9 @@ impl CPU {
         }
 
         // Increment PC
-        self.pc += 1;
+        if !dont_increment_pc {
+            self.pc += 1;
+        }
     }
 
     // TODO: Tomorrow, complete this and try chatgpt tests, also figure out whatever page crossing is
@@ -281,11 +319,24 @@ impl CPU {
             }
             AddressingMode::AbsoluteX => {
                 // absolute X addressing mode, addr is next 2 bytes + X
-                self.memory.borrow().read_u16(self.pc + 1).wrapping_add(self.idx_x as u16)
+                self.memory
+                    .borrow()
+                    .read_u16(self.pc + 1)
+                    .wrapping_add(self.idx_x as u16)
             }
             AddressingMode::AbsoluteY => {
                 // absolute Y addressing mode, addr is next 2 bytes + Y
-                self.memory.borrow().read_u16(self.pc + 1).wrapping_add(self.idx_y as u16)
+                self.memory
+                    .borrow()
+                    .read_u16(self.pc + 1)
+                    .wrapping_add(self.idx_y as u16)
+            }
+            AddressingMode::Indirect => {
+                // indirect addressing mode, addr is at data at next 2 bytes
+                let oper = self.memory.borrow().read_u16(self.pc + 1);
+                self.memory
+                    .borrow()
+                    .read_u16(oper)
             }
             AddressingMode::IndirectX => {
                 // indirect X addressing mode, addr is at data at (oper + X)
@@ -295,7 +346,10 @@ impl CPU {
             AddressingMode::IndirectY => {
                 // indirect Y addressing mode, addr is at data at oper, Y is added later
                 let oper = self.memory.borrow()[self.pc + 1];
-                self.memory.borrow().read_u16(oper as u16).wrapping_add(self.idx_y as u16)
+                self.memory
+                    .borrow()
+                    .read_u16(oper as u16)
+                    .wrapping_add(self.idx_y as u16)
             }
 
             _ => panic!("Invalid addressing mode"),
@@ -329,6 +383,7 @@ enum AddressingMode {
     Absolute,
     AbsoluteX,
     AbsoluteY,
+    Indirect,
     IndirectX,
     IndirectY,
     NoneAddressing,
