@@ -19,8 +19,6 @@ pub fn main() -> Result<(), String> {
 
     let start = Instant::now();
 
-    let iters_clone = iters_last_sec.clone();
-
     let fps = Rc::new(Cell::new(0));
 
     let fps_clone = fps.clone();

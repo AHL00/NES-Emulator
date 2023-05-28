@@ -27,6 +27,31 @@ impl CPU {
         }
     }
 
+    pub fn reset(&mut self) {
+        // reset registers
+        self.sp = 0xFD; // default value
+        self.acc = 0;
+        self.idx_x = 0;
+        self.idx_y = 0;
+        self.status = 0;
+
+        // reset program counter to address stored at 0xFFFC
+        self.pc = self.memory.borrow().read_u16(0xFFFC);
+
+        // reset sleep cycles
+        self.sleep_cycles = 0;
+    }
+
+    pub fn load(&mut self, program: Vec<u8>) {
+        // load program into PRG ROM space
+        self.memory.borrow_mut()[0x8000..(0x8000 + program.len() as u16)]
+            .copy_from_slice(&program[..]);
+        self.pc = 0x8000;
+
+        // save reference to code into 0xFFFC memory cell
+        self.memory.borrow_mut().write_u16(0xFFFC, 0x8000);
+    }
+
     fn get_flag(&mut self, flag: u8) -> bool {
         self.status & flag != 0
     }
@@ -39,43 +64,178 @@ impl CPU {
         self.status &= !flag;
     }
 
+    fn check_zero(&mut self, value: u8) {
+        if value == 0 {
+            self.set_flag(Flag::Zero);
+        } else {
+            self.clear_flag(Flag::Zero);
+        }
+    }
+
+    fn check_negative(&mut self, value: u8) {
+        if value & 0b1000_0000 != 0 {
+            self.set_flag(Flag::Negative);
+        } else {
+            self.clear_flag(Flag::Negative);
+        }
+    }
+
     pub fn cycle(&mut self) {
+        //print!("cycle!");
         // sleep for cycles until sleep_cycles is 0
         if self.sleep_cycles > 0 {
             self.sleep_cycles -= 1;
+            //println!("sleeping");
             return;
         }
+        //println!();
 
         // Fetch
         let opcode = self.memory.borrow_mut()[self.pc as u16];
 
         // Decode
         match opcode {
-            0xA9 => {
-                // <-- LDA [ Immediate ] -->
+            // <-- LDA -->
+            0xA9 => { // <-- [ Immediate ] -->
                 // Load accumulator with immediate value
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
 
-                // set accumulator to value
-                self.pc += 1;
-                self.acc = self.memory.borrow_mut()[self.pc as u16];
+                let addr = self.get_operand_addr(AddressingMode::Immediate);
+                self.acc = self.memory.borrow()[addr];
 
-                // set zero flag if accumulator is 0
-                if self.acc == 0 {
-                    self.set_flag(Flag::Zero);
-                } else {
-                    self.clear_flag(Flag::Zero);
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xA5 => { // <-- [ Zero Page ] -->
+                // Load accumulator with zero page value
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::ZeroPage);
+                self.acc = self.memory.borrow()[addr];
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xB5 => { // <-- [ Zero Page, X ] -->
+                // Load accumulator with zero page value
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::ZeroPageX);
+                self.acc = self.memory.borrow()[addr];
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xAD => { // <-- [ Absolute ] -->
+                // Load accumulator with data at absolute value
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::Absolute);
+                self.acc = self.memory.borrow()[addr];
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xBD => { // <-- [ Absolute, X ] -->
+                // Load accumulator with data at absolute value + X
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::AbsoluteX);
+                self.acc = self.memory.borrow()[addr];
+
+                // if page crossed, add 1 cycle
+                let base_addr = self.get_operand_addr(AddressingMode::Absolute);
+                if self.check_page_cross(base_addr, addr) {
+                    self.sleep_cycles += 1;
                 }
 
-                // MSB not 1, set negative flag
-                if self.acc & 0b1000_0000 != 0 {
-                    self.set_flag(Flag::Negative);
-                } else {
-                    self.clear_flag(Flag::Negative);
-                }    
-                
-            },
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xB9 => { // <-- [ Absolute, Y ] -->
+                // Load accumulator with data at absolute value + X
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::AbsoluteY);
+                self.acc = self.memory.borrow()[addr];
+
+                // if page crossed, add 1 cycle
+                let base_addr = self.get_operand_addr(AddressingMode::Absolute);
+                if self.check_page_cross(base_addr, addr) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xA1 => { // <-- [ Indirect, X ] -->
+                // Load accumulator with data at indirect value + X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::IndirectX);
+                self.acc = self.memory.borrow()[addr];
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0xB1 => { // <-- [ Indirect, Y ] -->
+                // Load accumulator with data at indirect value + Y
+                // 2 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                // set accumulator to value
+                let addr = self.get_operand_addr(AddressingMode::IndirectY);
+                self.acc = self.memory.borrow()[addr];
+
+                // if page crossed, add 1 cycle
+                let oper = self.memory.borrow()[self.pc + 1];
+                let base_addr = self.memory.borrow().read_u16(oper as u16);
+                if self.check_page_cross(base_addr, addr) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            
+            // <-- TAX -->
             0xAA => {
                 // <-- TAX [ None ] -->
                 // Transfer accumulator to index X
@@ -84,30 +244,71 @@ impl CPU {
 
                 self.idx_x = self.acc;
 
-                // set zero flag if index X is 0
-                if self.idx_x == 0 {
-                    self.set_flag(Flag::Zero);
-                } else {
-                    self.clear_flag(Flag::Zero);
-                }
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
 
-                // MSB not 1, set negative flag
-                if self.idx_x & 0b1000_0000 != 0 {
-                    self.set_flag(Flag::Negative);
-                } else {
-                    self.clear_flag(Flag::Negative);
-                }
-            },
-            
-            _ => unimplemented!("Opcode {:#X} not implemented", opcode),
+            _ => {} //unimplemented!("Opcode {:#X} not implemented", opcode),
         }
 
         // Increment PC
         self.pc += 1;
     }
+
+    // TODO: Tomorrow, complete this and try chatgpt tests, also figure out whatever page crossing is
+    /// Returns the address of the operand for the current instruction, and increments the PC
+    fn get_operand_addr(&self, mode: AddressingMode) -> u16 {
+        match mode {
+            AddressingMode::Immediate => {
+                // immediate addressing mode, addr is next byte
+                self.pc + 1
+            }
+            AddressingMode::ZeroPage => {
+                // zero page addressing mode, addr is next byte's value
+                self.memory.borrow()[self.pc + 1] as u16
+            }
+            AddressingMode::ZeroPageX => {
+                // zero page X addressing mode, addr is next byte's value + X
+                (self.memory.borrow()[self.pc + 1] + self.idx_x) as u16
+            }
+            AddressingMode::ZeroPageY => {
+                // zero page Y addressing mode, addr is next byte's value + Y
+                (self.memory.borrow()[self.pc + 1] + self.idx_y) as u16
+            }
+            AddressingMode::Absolute => {
+                // absolute addressing mode, addr is next 2 bytes
+                self.memory.borrow().read_u16(self.pc + 1)
+            }
+            AddressingMode::AbsoluteX => {
+                // absolute X addressing mode, addr is next 2 bytes + X
+                self.memory.borrow().read_u16(self.pc + 1).wrapping_add(self.idx_x as u16)
+            }
+            AddressingMode::AbsoluteY => {
+                // absolute Y addressing mode, addr is next 2 bytes + Y
+                self.memory.borrow().read_u16(self.pc + 1).wrapping_add(self.idx_y as u16)
+            }
+            AddressingMode::IndirectX => {
+                // indirect X addressing mode, addr is at data at (oper + X)
+                let oper = self.memory.borrow()[self.pc + 1];
+                self.memory.borrow().read_u16((oper + self.idx_x) as u16)
+            }
+            AddressingMode::IndirectY => {
+                // indirect Y addressing mode, addr is at data at oper, Y is added later
+                let oper = self.memory.borrow()[self.pc + 1];
+                self.memory.borrow().read_u16(oper as u16).wrapping_add(self.idx_y as u16)
+            }
+
+            _ => panic!("Invalid addressing mode"),
+        }
+    }
+
+    fn check_page_cross(&mut self, addr1: u16, addr2: u16) -> bool {
+        addr1 & 0xFF00 != addr2 & 0xFF00
+    }
 }
 
 // stupid enum implementation, need it because rust doesn't support bitflags on enums
+#[allow(non_upper_case_globals)]
 mod Flag {
     pub const Carry: u8 = 0b0000_0001;
     pub const Zero: u8 = 0b0000_0010;
@@ -131,4 +332,4 @@ enum AddressingMode {
     IndirectX,
     IndirectY,
     NoneAddressing,
- }
+}
