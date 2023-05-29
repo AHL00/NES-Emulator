@@ -68,7 +68,7 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
         let mut emulator = emulator::Emulator::new();
 
         // test loop program, acc should be 0x12 at the end
-        emulator.memory.borrow_mut().write_u16(0x0000, 0x8000);
+        emulator.bus.mem_write_u16(0x0000, 0x8000);
         emulator.load(vec![
             0xA9, 0x12, // 0x8000 LDA immediate, load value 0x12 into accumulator
             0x4C, 0x00, 0x00, // 0x8002 JMP, jump to the address at 0x0000

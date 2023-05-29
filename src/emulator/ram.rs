@@ -127,19 +127,6 @@ impl RAM {
         }
     }
 
-    /// Little endian byte order, write to two bytes after address
-    pub fn write_u16(&mut self, address: u16, value: u16) {
-        let bytes = value.to_le_bytes();
-        self[address] = bytes[0];
-        self[address + 1] = bytes[1];
-    }
-
-    /// Little endian byte order, read from two bytes after address
-    pub fn read_u16(&self, address: u16) -> u16 {
-        let bytes = [self[address], self[address + 1]];
-        u16::from_le_bytes(bytes)
-    }
-
     pub fn reset(&mut self) {
         self.array = [0; 0xFFFF];
     }
