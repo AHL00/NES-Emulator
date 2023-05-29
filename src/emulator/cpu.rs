@@ -13,6 +13,7 @@ pub struct CPU {
     sleep_cycles: u8, // counter for sleep cycles
 }
 
+#[allow(dead_code)]
 impl CPU {
     pub fn new(memory: Rc<RefCell<RAM>>) -> Self {
         CPU {
@@ -96,9 +97,8 @@ impl CPU {
 
         // Decode
         match opcode {
-            // <-- LDA -->
-            0xA9 => {
-                // <-- [ Immediate ] -->
+            //              <--| LDA |-->
+            0xA9 => { // <-- [ Immediate ] -->
                 // Load accumulator with immediate value
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
@@ -112,8 +112,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xA5 => {
-                // <-- [ Zero Page ] -->
+            0xA5 => { // <-- [ Zero Page ] -->
                 // Load accumulator with zero page value
                 // 2 bytes, 3 cycles
                 self.sleep_cycles = 2;
@@ -128,8 +127,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB5 => {
-                // <-- [ Zero Page, X ] -->
+            0xB5 => { // <-- [ Zero Page, X ] -->
                 // Load accumulator with zero page value
                 // 2 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -144,8 +142,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xAD => {
-                // <-- [ Absolute ] -->
+            0xAD => { // <-- [ Absolute ] -->
                 // Load accumulator with data at absolute value
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -160,8 +157,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xBD => {
-                // <-- [ Absolute, X ] -->
+            0xBD => { // <-- [ Absolute, X ] -->
                 // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -182,8 +178,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB9 => {
-                // <-- [ Absolute, Y ] -->
+            0xB9 => { // <-- [ Absolute, Y ] -->
                 // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
@@ -204,8 +199,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xA1 => {
-                // <-- [ Indirect, X ] -->
+            0xA1 => { // <-- [ Indirect, X ] -->
                 // Load accumulator with data at indirect value + X
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
@@ -220,8 +214,7 @@ impl CPU {
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
-            0xB1 => {
-                // <-- [ Indirect, Y ] -->
+            0xB1 => { // <-- [ Indirect, Y ] -->
                 // Load accumulator with data at indirect value + Y
                 // 2 bytes, 5 cycles
                 self.sleep_cycles = 4;
@@ -243,9 +236,8 @@ impl CPU {
                 self.check_negative(self.acc);
             }
 
-            // <-- JMP -->
-            0x4C => {
-                // <-- [ Absolute ] -->
+            //              <--| JMP |-->
+            0x4C => { // <-- [ Absolute ] -->
                 // Jump to absolute address
                 // 3 bytes, 3 cycles
                 self.sleep_cycles = 2;
@@ -257,8 +249,7 @@ impl CPU {
                 // PC is incremented at end of cycle
                 dont_increment_pc = true;
             }
-            0x6C => {
-                // <-- [ Indirect ] -->
+            0x6C => { // <-- [ Indirect ] -->
                 // Jump to indirect address
                 // 3 bytes, 5 cycles
                 self.sleep_cycles = 4;
@@ -271,9 +262,94 @@ impl CPU {
                 dont_increment_pc = true;
             }
 
-            // <-- TAX -->
-            0xAA => {
-                // <-- TAX [ None ] -->
+            //              <--| STA |-->
+            0x85 => { // <-- [ Zero Page ] -->
+                // Store accumulator at zero page address
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::ZeroPage);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x95 => { // <-- [ Zero Page, X ] -->
+                // Store accumulator at zero page address + X
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::ZeroPageX);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x8D => { // <-- [ Absolute ] -->
+                // Store accumulator at absolute address
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::Absolute);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next 2 bytes
+                self.pc += 2;
+            }
+            0x9D => { // <-- [ Absolute, X ] -->
+                // Store accumulator at absolute address + X
+                // 3 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::AbsoluteX);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next 2 bytes
+                self.pc += 2;
+            }
+            0x99 => { // <-- [ Absolute, Y ] -->
+                // Store accumulator at absolute address + Y
+                // 3 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::AbsoluteY);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next 2 bytes
+                self.pc += 2;
+            }
+            0x81 => { // <-- [ Indirect, X ] -->
+                // Store accumulator at indirect address + X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::IndirectX);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x91 => { // <-- [ Indirect, Y ] -->
+                // Store accumulator at indirect address + Y
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                // set memory to accumulator
+                let addr = self.get_operand_addr(AddressingMode::IndirectY);
+                self.memory.borrow_mut()[addr] = self.acc;
+
+                // skip next byte
+                self.pc += 1;
+            }
+
+            //              <--| TAX |-->
+            0xAA => { // <-- [ None ] -->
                 // Transfer accumulator to index X
                 // 1 byte, 2 cycles
                 self.sleep_cycles = 1;
@@ -363,6 +439,8 @@ impl CPU {
 
 // stupid enum implementation, need it because rust doesn't support bitflags on enums
 #[allow(non_upper_case_globals)]
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 mod Flag {
     pub const Carry: u8 = 0b0000_0001;
     pub const Zero: u8 = 0b0000_0010;

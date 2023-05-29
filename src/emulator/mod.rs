@@ -31,7 +31,7 @@ impl Emulator {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     fn run(emulator: &mut Emulator, program: Vec<u8>, cycles: usize) {
@@ -178,7 +178,9 @@ mod test {
         emulator.memory.borrow_mut()[0x1104] = 0xAB; // Value at target address
         emulator.cpu.idx_y = 0x05; // Set Y register value
 
-        run(&mut emulator, vec![0xB1, 0x0A], 6);
+        run(&mut emulator, vec![0xB1, 0x0A, 0xA9, 0x12], 6);
+        // if page crossing occurs, an extra cycle is required, which means
+        // 0x12 will not be loaded into the accumulator
 
         // Perform assertions
         assert_eq!(emulator.cpu.acc, 0xAB);
@@ -219,5 +221,97 @@ mod test {
         run(&mut emulator, vec![0x6C, 0x00, 0x00], 5);
 
         assert_eq!(emulator.cpu.pc, 0x1020);
+    }
+
+    #[test]
+    fn sta_zp() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+
+        run(&mut emulator, vec![0x85, 0x10], 3);
+
+        assert_eq!(emulator.memory.borrow()[0x0010], 0x21);
+    }
+
+    #[test]
+    fn sta_zp_x() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+        emulator.cpu.idx_x = 0x05;
+
+        run(&mut emulator, vec![0x95, 0x10], 4);
+
+        assert_eq!(emulator.memory.borrow()[0x0015], 0x21);
+    }
+
+    #[test]
+    fn sta_abs() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+
+        run(&mut emulator, vec![0x8D, 0x00, 0x10], 4);
+
+        assert_eq!(emulator.memory.borrow()[0x1000], 0x21);
+    }
+
+    #[test]
+    fn sta_abs_x() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+        emulator.cpu.idx_x = 0x05;
+
+        run(&mut emulator, vec![0x9D, 0x00, 0x10], 5);
+
+        assert_eq!(emulator.memory.borrow()[0x1005], 0x21);
+    }
+
+    #[test]
+    fn sta_abs_y() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+        emulator.cpu.idx_y = 0x05;
+
+        run(&mut emulator, vec![0x99, 0x00, 0x10], 5);
+
+        assert_eq!(emulator.memory.borrow()[0x1005], 0x21);
+    }
+
+    #[test]
+    fn sta_indirect_x() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+        emulator.cpu.idx_x = 0x05;
+
+        // Load test program into memory
+        emulator.memory.borrow_mut()[0x000F] = 0x20; // Low byte of target address
+        emulator.memory.borrow_mut()[0x0010] = 0x10; // High byte of target address
+
+        run(&mut emulator, vec![0x81, 0x0A], 6);
+
+        // Perform assertions
+        assert_eq!(emulator.memory.borrow()[0x1020], 0x21);
+    }
+
+    #[test]
+    fn sta_indirect_y() {
+        let mut emulator = Emulator::new();
+
+        emulator.cpu.acc = 0x21;
+        emulator.cpu.idx_y = 0x05;
+
+        // Load test program into memory
+        emulator.memory.borrow_mut()[0x000A] = 0x20; // Low byte of target address
+        emulator.memory.borrow_mut()[0x000B] = 0x10; // High byte of target address
+
+        run(&mut emulator, vec![0x91, 0x0A], 6);
+
+        // Perform assertions
+        assert_eq!(emulator.memory.borrow()[0x1025], 0x21);
     }
 }
