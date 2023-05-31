@@ -26,6 +26,15 @@ pub mod tests {
         }
     }
 
+    // TODO: Performance benchmarking
+    // #[test]
+    // fn cycles_per_second() {
+    //     let mut emulator = Emulator::new();
+
+    //     // load test program to memory and set PC to it
+    //     run(&mut emulator, vec![0x4C, 0x00, 0xC0], 1000000);
+    // }
+
     #[test]
     fn mem_write_u16() {
         let emulator = Emulator::new();
@@ -44,6 +53,170 @@ pub mod tests {
         emulator.bus.mem_write(0x0001, 0x10);
 
         assert_eq!(emulator.bus.mem_read_u16(0x0000), 0x1020);
+    }
+
+    pub mod adc {
+        use crate::emulator::{tests::tests::run, Emulator};
+
+        #[test]
+        fn adc_imm() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x00;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0x69, 0x01], 4);
+
+            assert_eq!(emulator.cpu.acc, 0x01);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_imm_carry() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0xFF;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0x69, 0x02], 4);
+
+            assert_eq!(emulator.cpu.acc, 0x01);
+            assert_eq!(emulator.cpu.status, 0b00000001);
+        }
+
+        #[test]
+        fn adc_imm_overflow() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x7F;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![ 0x69, 0x01], 4);
+
+            assert_eq!(emulator.cpu.acc, 0x80);
+            assert_eq!(emulator.cpu.status, 0b11000000);
+        }
+
+        #[test]
+        fn adc_zp() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0020, 0x01);
+
+            run(&mut emulator, vec![0x65, 0x20], 10);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_zp_x() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+            emulator.cpu.idx_x = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0025, 0x01);
+
+            run(&mut emulator, vec![0x75, 0x20], 11);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_abs() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1020, 0x01);
+
+            run(&mut emulator, vec![0x6D, 0x20, 0x10], 10);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_abs_x() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+            emulator.cpu.idx_x = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1025, 0x01);
+
+            run(&mut emulator, vec![0x7D, 0x20, 0x10], 11);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_abs_y() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+            emulator.cpu.idx_y = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1025, 0x01);
+
+            run(&mut emulator, vec![0x79, 0x20, 0x10], 11);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_ind_x() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+            emulator.cpu.idx_x = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0005, 0x20);
+            emulator.bus.mem_write(0x0006, 0x10);
+            emulator.bus.mem_write(0x1020, 0x01);
+
+            run(&mut emulator, vec![0x61, 0x00], 12);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn adc_ind_y() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.acc = 0x10;
+            emulator.cpu.idx_y = 0x05;
+
+            emulator.bus.mem_write(0x0005, 0x20);
+            emulator.bus.mem_write(0x0006, 0x10);
+            emulator.bus.mem_write(0x1025, 0x01);
+
+            // Load test program into memory
+            run(&mut emulator, vec![0x71, 0x05], 12);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x11);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
     }
 
     pub mod lda {
@@ -218,6 +391,27 @@ pub mod tests {
             run(&mut emulator, vec![0x6C, 0x00, 0x00], 5);
 
             assert_eq!(emulator.cpu.pc, 0x8000);
+        }
+    }
+
+    pub mod jsr_rts {
+        use crate::emulator::{tests::tests::run, Emulator};
+
+        #[test]
+        fn jsr_rts() {
+            let mut emulator = Emulator::new();
+
+            // LDA #$12
+            emulator.bus.mem_write(0x0012, 0xA9);
+            emulator.bus.mem_write(0x0013, 0x12);
+
+            // RTS
+            emulator.bus.mem_write(0x0014, 0x60);
+
+            run(&mut emulator, vec![0x20, 0x12, 0x00, 0x8D, 0x10, 0x00], 40);
+
+            assert_eq!(emulator.cpu.acc, 0x12, "JSR not working");
+            assert_eq!(emulator.bus.mem_read(0x0010), 0x12, "RTS not working");
         }
     }
 
@@ -444,7 +638,7 @@ pub mod tests {
     }
 
     pub mod nop {
-        use crate::emulator::{Emulator, tests::tests::run};
+        use crate::emulator::{tests::tests::run, Emulator};
 
         #[test]
         fn nop() {
@@ -465,7 +659,4 @@ pub mod tests {
             assert_ne!(emulator2.cpu.pc, 0x8002);
         }
     }
-
-
-
 }
