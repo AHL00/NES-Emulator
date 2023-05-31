@@ -36,14 +36,15 @@ impl Bus {
         }  
     }
 
+    /// Only works from 0x0000 to 0x1FFF
     pub fn mem_read_u16(&self, addr: u16) -> u16 {
-        u16::from_le_bytes([self.mem_read(addr), self.mem_read(addr + 1)])
+        (self.mem_read(addr) as u16) | ((self.mem_read(addr + 1) as u16) << 8)
     }
 
+    /// Only works from 0x0000 to 0x1FFF
     pub fn mem_write_u16(&self, addr: u16, data: u16) {
-        let bytes = data.to_le_bytes();
-        self.ram.borrow_mut()[addr] = bytes[0];
-        self.ram.borrow_mut()[addr + 1] = bytes[1];
+        self.mem_write(addr, (data & 0x00FF) as u8);
+        self.mem_write(addr + 1, ((data & 0xFF00) >> 8) as u8);
     }
 
     fn prg_rom_read(&self, addr: u16) -> u8 {

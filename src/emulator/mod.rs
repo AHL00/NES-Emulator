@@ -32,15 +32,13 @@ impl Emulator {
         }
     }
 
-    pub fn load_rom(&mut self, rom_path: &str) {
-        let rom_bytes =  // read rom bytes from file
-            std::fs::read(rom_path)
-            .expect(&format!("Failed to read file: {}", rom_path));
+    pub fn load_rom(&mut self, rom_bytes: Vec<u8>) {
+        // let rom_bytes =  // read rom bytes from file
+        //     std::fs::read(rom_path)
+        //     .expect(&format!("Failed to read file: {}", rom_path));
 
         self.rom.borrow_mut().read_from_bytes(&rom_bytes);
 
         self.cpu.pc = 0x8000;
-
-        println!("Program rom: {}", self.rom.borrow().prg_rom[0].data.len());
     }
 }

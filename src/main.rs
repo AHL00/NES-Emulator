@@ -67,7 +67,13 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut emulator = emulator::Emulator::new();
 
-        emulator.load_rom("roms/mario.nes");
+        let rom_path = "roms/mario.nes";
+
+        let rom_bytes =  // read rom bytes from file
+            std::fs::read(rom_path)
+            .expect(&format!("Failed to read file: {}", rom_path));
+
+        emulator.load_rom(rom_bytes);
 
         //std::thread::sleep(Duration::from_secs(100000));
 

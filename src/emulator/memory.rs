@@ -63,14 +63,14 @@ impl ROM {
     pub fn read_from_bytes(&mut self, bytes: &[u8]) {
         // read the mapper number from the ROM header
         self.mapper = bytes[6] >> 4;
-        println!("Mapper: {}", self.mapper);
 
         // Make sure rom object vecs are empty
         self.prg_rom.clear();
         self.chr_rom.clear();
 
         match self.mapper {
-            0 => { // <-- NROM -->
+            0 => {
+                // <-- NROM -->
                 // Check if the ROM is valid
                 if bytes[0..4] != [0x4E, 0x45, 0x53, 0x1A] {
                     panic!("Invalid ROM file!");
@@ -78,17 +78,19 @@ impl ROM {
 
                 // Check if need to skip trainer
                 let trainer = bytes[6] & 0x04 == 0x04;
-
-                
-                println!("Trainer: {}", trainer);
+                let trainer_len = if trainer { 512 } else { 0 };
 
                 // Read the 1 prg-rom bank at 0x10
                 let mut prg_rom_bank = ProgramRomBank::new();
-                prg_rom_bank.data.copy_from_slice(&bytes[0x10..0x4010]);
+                prg_rom_bank
+                    .data
+                    .copy_from_slice(&bytes[0x10 + trainer_len..0x4010 + trainer_len]);
 
                 // Read the 1 chr-rom bank at 0x10 + 1 prg-rom bank size
                 let mut chr_rom_bank = CharRomBank::new();
-                chr_rom_bank.data.copy_from_slice(&bytes[0x4010..0x6010]);
+                chr_rom_bank
+                    .data
+                    .copy_from_slice(&bytes[0x4010 + trainer_len..0x6010 + trainer_len]);
 
                 // Push the banks to the rom object
                 self.prg_rom.push(prg_rom_bank);
