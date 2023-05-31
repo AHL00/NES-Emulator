@@ -4,7 +4,7 @@ pub mod tests {
 
     fn run(emulator: &mut Emulator, program: Vec<u8>, cycles: usize) {
         // load test program to memory and set PC to it
-        emulator.load(program);
+        // TODO: Fix tests with new rom struct
 
         for _ in 0..cycles {
             emulator.cpu.cycle();

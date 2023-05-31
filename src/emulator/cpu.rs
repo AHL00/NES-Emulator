@@ -28,32 +28,6 @@ impl CPU {
         }
     }
 
-    pub fn reset(&mut self) {
-        // reset registers
-        self.sp = 0xFD; // default value
-        self.acc = 0;
-        self.idx_x = 0;
-        self.idx_y = 0;
-        self.status = 0;
-
-        // reset program counter to address stored at 0xFFFC
-        self.pc = self.bus.mem_read_u16(0xFFFC);
-
-        // reset sleep cycles
-        self.sleep_cycles = 0;
-    }
-
-    pub fn load(&mut self, program: Vec<u8>) {
-        // load program into PRG ROM space
-        for i in 0..program.len() {
-            self.bus.mem_write(0x8000 + i as u16, program[i]);
-        }
-        self.pc = 0x8000;
-
-        // save reference to code into 0xFFFC memory cell
-        self.bus.mem_write_u16(0xFFFC, 0x8000);
-    }
-
     fn get_flag(&mut self, flag: u8) -> bool {
         self.status & flag != 0
     }
@@ -379,7 +353,7 @@ impl CPU {
                 self.check_negative(self.idx_x);
             }
 
-            _ => {} //unimplemented!("Opcode {:#X} not implemented", opcode),
+            _ => {unimplemented!("Opcode {:#X} not implemented", opcode)},
         }
 
         // Increment PC

@@ -67,15 +67,20 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut emulator = emulator::Emulator::new();
 
-        // test loop program, acc should be 0x12 at the end
-        emulator.bus.mem_write_u16(0x0000, 0x8000);
-        emulator.load(vec![
-            0xA9, 0x12, // 0x8000 LDA immediate, load value 0x12 into accumulator
-            0x4C, 0x00, 0x00, // 0x8002 JMP, jump to the address at 0x0000
-            0xA9, 0x34, // 0x8005 LDA immediate, load value 0x34 into accumulator (skipped)
-        ]);
+        emulator.load_rom("roms/mario.nes");
 
-        let target_cycle_time = Duration::from_secs_f64(1.0 / 1_789_773.0);
+        //std::thread::sleep(Duration::from_secs(100000));
+
+        // test loop program, acc should be 0x12 at the end
+        // emulator.bus.mem_write_u16(0x0000, 0x8000);
+        // emulator.load(vec![
+        //     0xA9, 0x12, // 0x8000 LDA immediate, load value 0x12 into accumulator
+        //     0x4C, 0x00, 0x00, // 0x8002 JMP, jump to the address at 0x0000
+        //     0xA9, 0x34, // 0x8005 LDA immediate, load value 0x34 into accumulator (skipped)
+        // ]);
+
+        //let target_cycle_time = Duration::from_secs_f64(1.0 / 1_789_773.0);
+        let target_cycle_time = Duration::from_secs_f64(1.0 / 3.0);
 
         println!("Target cycle time: {:?}", target_cycle_time);
         println!("Target hz: {:0}", 1.0 / target_cycle_time.as_secs_f64());
@@ -83,7 +88,7 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
         println!("Running...");
 
         let mut cycles: i64 = 0;
-        let run_duration = Duration::from_secs(1);
+        let run_duration = Duration::from_secs(100);
         let start = Instant::now();
         let mut last_loop = Instant::now();
 
