@@ -67,26 +67,44 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut emulator = emulator::Emulator::new();
 
-        let rom_path = "roms/mario.nes";
+        // let rom_path = "roms/mario.nes";
 
-        let rom_bytes =  // read rom bytes from file
-            std::fs::read(rom_path)
-            .expect(&format!("Failed to read file: {}", rom_path));
+        // let rom_bytes =  // read rom bytes from file
+        //     std::fs::read(rom_path)
+        //     .expect(&format!("Failed to read file: {}", rom_path));
 
-        emulator.load_rom(rom_bytes);
+        // emulator.load_rom(rom_bytes);
 
-        //std::thread::sleep(Duration::from_secs(100000));
+        emulator.bus.mem_write_u16(0x0000, 0x8000);
+        let test_program = vec![
+            0xA9, 0x12, // 0x8000 LDA immediate, load value 0x12 into accumulator
+            0x4C, 0x00, 0x00, // 0x8002 JMP, jump to the address at 0x0000
+            0xA9, 0x34, // 0x8005 LDA immediate, load value 0x34 into accumulator (skipped)
+        ];
+
+        let mut program: Vec<u8> = vec![
+            0x4E, 0x45, 0x53, 0x1A, 0x02, 0x01, 0x01, 0x00, 0x02, 0x01, 0x01, 0x00, 0x02, 0x01,
+            0x01, 0x00, // NROM header
+        ];
+
+        let mut prg_arr = [0; 0x4000];
+        let chr_arr = [0; 0x2000];
+
+        // copy the program to the start of the prg rom bank
+        prg_arr[0..test_program.len()].copy_from_slice(&test_program);
+
+        // add the two arrays to the program array
+        program.extend_from_slice(&prg_arr);
+        program.extend_from_slice(&chr_arr);
+
+        emulator.load_rom(program);
 
         // test loop program, acc should be 0x12 at the end
         // emulator.bus.mem_write_u16(0x0000, 0x8000);
-        // emulator.load(vec![
-        //     0xA9, 0x12, // 0x8000 LDA immediate, load value 0x12 into accumulator
-        //     0x4C, 0x00, 0x00, // 0x8002 JMP, jump to the address at 0x0000
-        //     0xA9, 0x34, // 0x8005 LDA immediate, load value 0x34 into accumulator (skipped)
-        // ]);
+        // emulator.load();
 
-        //let target_cycle_time = Duration::from_secs_f64(1.0 / 1_789_773.0);
-        let target_cycle_time = Duration::from_secs_f64(1.0 / 3.0);
+        let target_cycle_time = Duration::from_secs_f64(1.0 / 1_789_773.0);
+        //let target_cycle_time = Duration::from_secs_f64(1.0 / 3.0);
 
         println!("Target cycle time: {:?}", target_cycle_time);
         println!("Target hz: {:0}", 1.0 / target_cycle_time.as_secs_f64());
@@ -94,12 +112,25 @@ fn start_emulator() -> std::thread::JoinHandle<()> {
         println!("Running...");
 
         let mut cycles: i64 = 0;
-        let run_duration = Duration::from_secs(100);
         let start = Instant::now();
-        let mut last_loop = Instant::now();
-
+        
         let mut cycles_buffer = 0.0;
-
+        
+        loop {
+            if start.elapsed().as_secs_f32() > 5.0 {
+                break;
+            }
+            
+            emulator.cpu.cycle();
+            cycles += 1;
+        }
+        println!("Max speed: {:0} hz", cycles as f64 / start.elapsed().as_secs_f64());
+        
+        let start = Instant::now();
+        let mut cycles: i64 = 0;
+        let run_duration = Duration::from_secs(10);
+        let mut last_loop = Instant::now();
+        
         loop {
             if last_loop.elapsed() < Duration::from_secs_f32(1.0 / 10000.0) {
                 continue;

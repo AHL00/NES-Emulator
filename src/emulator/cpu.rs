@@ -313,6 +313,278 @@ impl CPU {
                 self.check_negative(self.acc);
             }
 
+            // <--| AND |-->
+            0x29 /* <-- [ Immediate ] --> */ => {
+                // Logical AND immediate
+                // 2 bytes, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("AND: Immediate | "); }
+
+                let value = self.bus.mem_read(self.pc + 1);
+                self.acc &= value;
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x25 /* <-- [ Zero Page ] --> */ => {
+                // Logical AND zero page
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                if self.debug_mode { print!("AND: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x35 /* <-- [ Zero Page, X ] --> */ => {
+                // Logical AND zero page, X
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("AND: Zero Page, X | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x2D /* <-- [ Absolute ] --> */ => {
+                // Logical AND absolute
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("AND: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x3D /* <-- [ Absolute, X ] --> */ => {
+                // Logical AND absolute, X
+                // 3 bytes, 4 cycles (+1 if page crossed)
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("AND: Absolute, X | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x39 /* <-- [ Absolute, Y ] --> */ => {
+                // Logical AND absolute, Y
+                // 3 bytes, 4 cycles (+1 if page crossed)
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("AND: Absolute, Y | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteY);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x21 /* <-- [ Indirect, X ] --> */ => {
+                // Logical AND indirect, X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("AND: Indirect, X | "); }
+
+                let addr = self.get_addr(AddressingMode::IndirectX);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x31 /* <-- [ Indirect, Y ] --> */ => {
+                // Logical AND indirect, Y
+                // 2 bytes, 5 cycles (+1 if page crossed)
+                self.sleep_cycles = 4;
+
+                if self.debug_mode { print!("AND: Indirect, Y | "); }
+
+                let addr = self.get_addr(AddressingMode::IndirectY);
+                let value = self.bus.mem_read(addr);
+                self.acc &= value;
+
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Indirect)) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+
+            // <--| ASL |-->
+            0x0A /* <-- [ Accumulator ] --> */ => {
+                // Arithmetic shift left accumulator
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("ASL: Accumulator | "); }
+
+                if self.acc & 0x80 != 0 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                self.acc = self.acc << 1;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            0x06 /* <-- [ Zero Page ] --> */ => {
+                // Arithmetic shift left zero page
+                // 2 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                if self.debug_mode { print!("ASL: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                let mut value = self.bus.mem_read(addr);
+
+                if value & 0x80 != 0 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                value = value << 1;
+                self.bus.mem_write(addr, value);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(value);
+                self.check_negative(value);
+            }
+            0x16 /* <-- [ Zero Page, X ] --> */ => {
+                // Arithmetic shift left zero page, X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("ASL: Zero Page, X | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                let mut value = self.bus.mem_read(addr);
+
+                if value & 0x80 != 0 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                value = value << 1;
+                self.bus.mem_write(addr, value);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(value);
+                self.check_negative(value);
+            }
+            0x0E /* <-- [ Absolute ] --> */ => {
+                // Arithmetic shift left absolute
+                // 3 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("ASL: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                let mut value = self.bus.mem_read(addr);
+
+                if value & 0x80 != 0 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                value = value << 1;
+                self.bus.mem_write(addr, value);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(value);
+                self.check_negative(value);
+            }
+            0x1E /* <-- [ Absolute, X ] --> */ => {
+                // Arithmetic shift left absolute, X
+                // 3 bytes, 7 cycles
+                self.sleep_cycles = 6;
+
+                if self.debug_mode { print!("ASL: Absolute, X | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                let mut value = self.bus.mem_read(addr);
+
+                if value & 0x80 != 0 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                value = value << 1;
+                self.bus.mem_write(addr, value);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(value);
+                self.check_negative(value);
+            }
+
             // <--| CLC |-->
             0x18 /* <-- [ Implied ] --> */ => {
                 // Clear carry flag
