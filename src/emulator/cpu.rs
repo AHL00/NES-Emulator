@@ -565,6 +565,180 @@ impl CPU {
                 self.check_negative(self.acc);
             }
 
+            // <--| LDX |-->
+            0xA2 /* <-- [ Immediate ] --> */ => {
+                // Load X with immediate value
+                // 2 bytes, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("LDX: Immediate | "); }
+
+                let addr = self.get_addr(AddressingMode::Immediate);
+                self.idx_x = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+            0xA6 /* <-- [ Zero Page ] --> */ => {
+                // Load X with zero page value
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                if self.debug_mode { print!("LDX: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                self.idx_x = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+            0xB6 /* <-- [ Zero Page, Y ] --> */ => {
+                // Load X with zero page value + Y
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDX: Zero Page, Y | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageY);
+                self.idx_x = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+            0xAE /* <-- [ Absolute ] --> */ => {
+                // Load X with absolute value
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDX: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                self.idx_x = self.bus.mem_read(addr);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+            0xBE /* <-- [ Absolute, Y ] --> */ => {
+                // Load X with absolute value + Y
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDX: Absolute, Y | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteY);
+                self.idx_x = self.bus.mem_read(addr);
+
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+
+            // <--| LDY |-->
+            0xA0 /* <-- [ Immediate ] --> */ => {
+                // Load Y with immediate value
+                // 2 bytes, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("LDY: Immediate | "); }
+
+                let addr = self.get_addr(AddressingMode::Immediate);
+                self.idx_y = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+            0xA4 /* <-- [ Zero Page ] --> */ => {
+                // Load Y with zero page value
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                if self.debug_mode { print!("LDY: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                self.idx_y = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+            0xB4 /* <-- [ Zero Page, X ] --> */ => {
+                // Load Y with zero page value + X
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDY: Zero Page, X | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                self.idx_y = self.bus.mem_read(addr);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+            0xAC /* <-- [ Absolute ] --> */ => {
+                // Load Y with absolute value
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDY: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                self.idx_y = self.bus.mem_read(addr);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+            0xBC /* <-- [ Absolute, X ] --> */ => {
+                // Load Y with absolute value + X
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                if self.debug_mode { print!("LDY: Absolute, X | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                self.idx_y = self.bus.mem_read(addr);
+
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
+                    self.sleep_cycles += 1;
+                }
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+
             // <--| JMP |-->
             0x4C /* <-- [ Absolute ] --> */ => {
                 // Jump to absolute address
@@ -897,6 +1071,10 @@ impl CPU {
                 // zero page X addressing mode, addr is next byte's oper + X
                 (self.bus.mem_read(self.pc + 1) + self.idx_x) as u16
             }
+            AddressingMode::ZeroPageY => {
+                // zero page Y addressing mode, addr is next byte's oper + Y
+                (self.bus.mem_read(self.pc + 1) + self.idx_y) as u16
+            }
             AddressingMode::Absolute => {
                 // absolute addressing mode, addr is next 2 bytes
                 self.bus.mem_read_u16(self.pc + 1)
@@ -953,6 +1131,7 @@ enum AddressingMode {
     Immediate,
     ZeroPage,
     ZeroPageX,
+    ZeroPageY,
     Absolute,
     AbsoluteX,
     AbsoluteY,

@@ -21,8 +21,6 @@ pub mod tests {
 
         emulator.load_rom(program);
 
-        emulator.toggle_debug();
-
         for _ in 0..cycles {
             emulator.cpu.cycle();
         }
@@ -504,6 +502,231 @@ pub mod tests {
             // Perform assertions
             assert_eq!(emulator.cpu.acc, 0xAB);
             assert_eq!(emulator.cpu.status, 0b10000000);
+        }
+    }
+
+    pub mod ldx {
+        use crate::emulator::{Emulator, tests::tests::run};
+
+        #[test]
+        fn ldx_imm() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA2, 0x05], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x05);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+        
+        #[test]
+        fn ldx_abs() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+
+            run(&mut emulator, vec![0xAE, 0x00, 0x00], 4);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x2A);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldx_abs_y() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0004, 0x2A);
+            emulator.bus.mem_write(0x1005, 0x5F);
+            emulator.cpu.idx_y = 0x05; // Set Y register value
+
+            run(&mut emulator, vec![0xBE, 0x00, 0x10, 0xBE, 0xFF, 0xFF], 11);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x2A);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldx_abs_y_page_cross() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1104, 0x5F);
+            emulator.cpu.idx_y = 0x05; // Set Y register value
+            
+            run(&mut emulator, vec![0xBE, 0xFF, 0x10, 0xA9, 0x12], 5);
+            // if page crossing occurs, an extra cycle is required, which means
+            // 0x12 will not be loaded into the accumulator
+            
+            // Perform assertions
+            assert_ne!(emulator.cpu.acc, 0x12);
+            assert_eq!(emulator.cpu.idx_x, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+            
+            emulator.bus.mem_write(0x10FF, 0x5F);
+            run(&mut emulator, vec![0xBE, 0xFA, 0x10, 0xA9, 0x12], 5);
+            // if page crossing occurs, an extra cycle is required, which means
+            // 0x12 will not be loaded into the accumulator
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.acc, 0x12);
+            assert_eq!(emulator.cpu.idx_x, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldx_imm_zero_flag() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA2, 0x00], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn ldx_imm_negative_flag() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA2, 0xFF], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0xFF);
+            assert_eq!(emulator.cpu.status, 0b10000000);
+        }
+
+        #[test]
+        fn ldx_zp() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x002A, 0x5F);
+
+            run(&mut emulator, vec![0xA6, 0x2A], 3);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldx_zp_y() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x0030, 0x5F);
+            emulator.cpu.idx_y = 0x30; // Set Y register value
+
+            run(&mut emulator, vec![0xB6, 0x00], 4);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+    }
+
+    pub mod ldy {
+        use crate::emulator::{Emulator, tests::tests::run};
+
+        #[test]
+        fn ldy_imm() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA0, 0x05], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x05);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldy_imm_zero_flag() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA0, 0x00], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn ldy_imm_neg_flag() {
+            let mut emulator = Emulator::new();
+
+            run(&mut emulator, vec![0xA0, 0xFF], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0xFF);
+            assert_eq!(emulator.cpu.status, 0b10000000);
+        }
+
+        #[test]
+        fn ldy_abs() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x002A, 0x5F);
+
+            run(&mut emulator, vec![0xAC, 0x2A, 0x00], 4);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldy_abs_x() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x0030, 0x5F);
+            emulator.cpu.idx_x = 0x30; // Set X register value
+
+            run(&mut emulator, vec![0xBC, 0x00, 0x00], 4);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldy_zp() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x002A, 0x5F);
+
+            run(&mut emulator, vec![0xA4, 0x2A], 3);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn ldy_zp_x() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0000, 0x2A);
+            emulator.bus.mem_write(0x0030, 0x5F);
+            emulator.cpu.idx_x = 0x30; // Set X register value
+
+            run(&mut emulator, vec![0xB4, 0x00], 4);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_y, 0x5F);
+            assert_eq!(emulator.cpu.status, 0b00000000);
         }
     }
 
