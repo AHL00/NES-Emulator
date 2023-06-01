@@ -55,6 +55,7 @@ pub mod tests {
         assert_eq!(emulator.bus.mem_read_u16(0x0000), 0x1020);
     }
 
+
     pub mod adc {
         use crate::emulator::{tests::tests::run, Emulator};
 
@@ -219,6 +220,58 @@ pub mod tests {
         }
     }
 
+    pub mod clear_flag {
+        use crate::emulator::{tests::tests::run, Emulator};
+    
+        #[test]
+        fn clc() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000001;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0x18], 2);
+
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn cld() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00001000;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0xD8], 2);
+
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn cli() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000100;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0x58], 2);
+
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+
+        #[test]
+        fn clv() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b01000000;
+
+            // load test program to memory and set PC to it
+            run(&mut emulator, vec![0xB8], 2);
+
+            assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+    }
+    
     pub mod dec {
         use crate::emulator::{tests::tests::run, Emulator};
 

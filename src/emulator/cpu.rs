@@ -313,6 +313,50 @@ impl CPU {
                 self.check_negative(self.acc);
             }
 
+            // <--| CLC |-->
+            0x18 /* <-- [ Implied ] --> */ => {
+                // Clear carry flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("CLC: Implied | "); }
+
+                self.clear_flag(StatusFlag::Carry);
+            }
+
+            // <--| CLD |-->
+            0xD8 /* <-- [ Implied ] --> */ => {
+                // Clear decimal flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("CLD: Implied | "); }
+
+                self.clear_flag(StatusFlag::Decimal);
+            }
+
+            // <--| CLI |-->
+            0x58 /* <-- [ Implied ] --> */ => {
+                // Clear interrupt flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("CLI: Implied | "); }
+
+                self.clear_flag(StatusFlag::Interrupt);
+            }
+
+            // <--| CLV |-->
+            0xB8 /* <-- [ Implied ] --> */ => {
+                // Clear overflow flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("CLV: Implied | "); }
+
+                self.clear_flag(StatusFlag::Overflow);
+            }
+
             // <--| DEC |-->
             0xC6 /* <-- [ Zero Page ] --> */ => {
                 // Decrement zero page
@@ -1121,8 +1165,8 @@ mod StatusFlag {
     pub const Overflow: u8 =         0b0100_0000;
     pub const Unused: u8 =           0b0010_0000;
     pub const Break: u8 =            0b0001_0000;
-    pub const DecimalMode: u8 =      0b0000_1000;
-    pub const InterruptDisable: u8 = 0b0000_0100;
+    pub const Decimal: u8 =      0b0000_1000;
+    pub const Interrupt: u8 = 0b0000_0100;
     pub const Zero: u8 =             0b0000_0010;
     pub const Carry: u8 =            0b0000_0001;
 }
