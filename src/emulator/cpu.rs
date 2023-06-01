@@ -117,6 +117,7 @@ impl CPU {
         let mut dont_increment_pc = false;
 
         // Decode, Execute
+        // TODO: Add debug mode prints
         match opcode {
             // <--| ADC |-->
             0x69 /* <-- [ Immediate ] --> */ => {
@@ -124,17 +125,19 @@ impl CPU {
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
 
+                if self.debug_mode { print!("ADC: Immediate | "); }
+
                 let addr = self.get_addr(AddressingMode::Immediate);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // skip next byte
                 self.pc += 1;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);
+                self.check_add_overflow(sum as u8, before_sum, value);
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -144,17 +147,19 @@ impl CPU {
                 // 2 bytes, 3 cycles
                 self.sleep_cycles = 2;
 
+                if self.debug_mode { print!("ADC: Zero Page | "); }
+
                 let addr = self.get_addr(AddressingMode::ZeroPage);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // skip next byte
                 self.pc += 1;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -164,17 +169,19 @@ impl CPU {
                 // 2 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
+                if self.debug_mode { print!("ADC: Zero Page, X | "); }
+
                 let addr = self.get_addr(AddressingMode::ZeroPageX);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // skip next byte
                 self.pc += 1;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -184,17 +191,19 @@ impl CPU {
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
+                if self.debug_mode { print!("ADC: Absolute | "); }
+
                 let addr = self.get_addr(AddressingMode::Absolute);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // skip next 2 bytes
                 self.pc += 2;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -204,11 +213,13 @@ impl CPU {
                 // 3 bytes, 4 cycles (+1 if page crossed)
                 self.sleep_cycles = 3;
 
+                if self.debug_mode { print!("ADC: Absolute, X | "); }
+
                 let addr = self.get_addr(AddressingMode::AbsoluteX);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // if page crossed, add 1 cycle
@@ -219,7 +230,7 @@ impl CPU {
                 // skip next 2 bytes
                 self.pc += 2;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -229,11 +240,13 @@ impl CPU {
                 // 3 bytes, 4 cycles (+1 if page crossed)
                 self.sleep_cycles = 3;
 
+                if self.debug_mode { print!("ADC: Absolute, Y | "); }
+
                 let addr = self.get_addr(AddressingMode::AbsoluteY);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // if page crossed, add 1 cycle
@@ -244,7 +257,7 @@ impl CPU {
                 // skip next 2 bytes
                 self.pc += 2;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -254,17 +267,19 @@ impl CPU {
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
 
+                if self.debug_mode { print!("ADC: Indirect, X | "); }
+
                 let addr = self.get_addr(AddressingMode::IndirectX);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // skip next byte
                 self.pc += 1;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
@@ -274,11 +289,14 @@ impl CPU {
                 // 2 bytes, 5 cycles (+1 if page crossed)
                 self.sleep_cycles = 4;
 
+                if self.debug_mode { print!("ADC: Indirect, Y | "); }
+
+
                 let addr = self.get_addr(AddressingMode::IndirectY);
-                let oper = self.bus.mem_read(addr);
+                let value = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
-                let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
+                let sum = self.acc as u16 + value as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
                 // if page crossed, add 1 cycle
@@ -289,17 +307,125 @@ impl CPU {
                 // skip next byte
                 self.pc += 1;
                 
-                self.check_add_overflow(sum as u8, before_sum, oper);               
+                self.check_add_overflow(sum as u8, before_sum, value);               
                 self.check_add_carry(sum);
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
 
+            // <--| DEC |-->
+            0xC6 /* <-- [ Zero Page ] --> */ => {
+                // Decrement zero page
+                // 2 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                if self.debug_mode { print!("DEC: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                let value = self.bus.mem_read(addr);
+
+                let res = value.wrapping_sub(1);
+                self.bus.mem_write(addr, res);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(res);
+                self.check_negative(res);
+            }
+            0xD6 /* <-- [ Zero Page, X ] --> */ => {
+                // Decrement zero page, X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("DEC: Zero Page, X | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                let value = self.bus.mem_read(addr);
+
+                let dec = value.wrapping_sub(1);
+                self.bus.mem_write(addr, dec);
+
+                // skip next byte
+                self.pc += 1;
+
+                self.check_zero(dec);
+                self.check_negative(dec);
+            }
+            0xCE /* <-- [ Absolute ] --> */ => {
+                // Decrement absolute
+                // 3 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("DEC: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                let value = self.bus.mem_read(addr);
+
+                let dec = value.wrapping_sub(1);
+                self.bus.mem_write(addr, dec);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(dec);
+                self.check_negative(dec);
+            }
+            0xDE /* <-- [ Absolute, X ] --> */ => {
+                // Decrement absolute, X
+                // 3 bytes, 7 cycles
+                self.sleep_cycles = 6;
+
+                if self.debug_mode { print!("DEC: Absolute, X | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                let value = self.bus.mem_read(addr);
+
+                let dec = value.wrapping_sub(1);
+                self.bus.mem_write(addr, dec);
+
+                // skip next 2 bytes
+                self.pc += 2;
+
+                self.check_zero(dec);
+                self.check_negative(dec);
+            }
+
+            // <--| DEX |-->
+            0xCA /* <-- [ Implied ] --> */ => {
+                // Decrement X
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("DEX: Implied | "); }
+
+                self.idx_x = self.idx_x.wrapping_sub(1);
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+
+            // <--| DEY |-->
+            0x88 /* <-- [ Implied ] --> */ => {
+                // Decrement Y
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("DEY: Implied | "); }
+
+                self.idx_y = self.idx_y.wrapping_sub(1);
+
+                self.check_zero(self.idx_y);
+                self.check_negative(self.idx_y);
+            }
+
             // <--| LDA |-->
             0xA9 /* <-- [ Immediate ] --> */ => {
-                // Load accumulator with immediate oper
+                // Load accumulator with immediate value
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("LDA: Immediate | "); }
 
                 let addr = self.get_addr(AddressingMode::Immediate);
                 self.acc = self.bus.mem_read(addr);
@@ -311,11 +437,13 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xA5 /* <-- [ Zero Page ] --> */ => {
-                // Load accumulator with zero page oper
+                // Load accumulator with zero page value
                 // 2 bytes, 3 cycles
                 self.sleep_cycles = 2;
 
-                // set accumulator to oper
+                if self.debug_mode { print!("LDA: Zero Page | "); }
+
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::ZeroPage);
                 self.acc = self.bus.mem_read(addr);
 
@@ -326,11 +454,13 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xB5 /* <-- [ Zero Page, X ] --> */ => {
-                // Load accumulator with zero page oper
+                // Load accumulator with zero page value
                 // 2 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                // set accumulator to oper
+                if self.debug_mode { print!("LDA: Zero Page, X | "); }
+
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::ZeroPageX);
                 self.acc = self.bus.mem_read(addr);
 
@@ -341,11 +471,13 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xAD /* <-- [ Absolute ] --> */ => {
-                // Load accumulator with data at absolute oper
+                // Load accumulator with data at absolute value
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                // set accumulator to oper
+                if self.debug_mode { print!("LDA: Absolute | "); }
+
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::Absolute);
                 self.acc = self.bus.mem_read(addr);
 
@@ -356,15 +488,13 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xBD /* <-- [ Absolute, X ] --> */ => {
-                // Load accumulator with data at absolute oper + X
+                // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                if self.debug_mode {
-                    print!("LDA: Absolute, X | ");
-                }
+                if self.debug_mode { print!("LDA: Absolute, X | "); }
 
-                // set accumulator to oper
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::AbsoluteX);
                 self.acc = self.bus.mem_read(addr);
                 
@@ -380,11 +510,11 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xB9 /* <-- [ Absolute, Y ] --> */ => {
-                // Load accumulator with data at absolute oper + X
+                // Load accumulator with data at absolute value + X
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                // set accumulator to oper
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::AbsoluteY);
                 self.acc = self.bus.mem_read(addr);
                 
@@ -400,11 +530,11 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xA1 /* <-- [ Indirect, X ] --> */ => {
-                // Load accumulator with data at indirect oper + X
+                // Load accumulator with data at indirect value + X
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
 
-                // set accumulator to oper
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::IndirectX);
                 self.acc = self.bus.mem_read(addr);
 
@@ -415,11 +545,11 @@ impl CPU {
                 self.check_negative(self.acc);
             }
             0xB1 /* <-- [ Indirect, Y ] --> */ => {
-                // Load accumulator with data at indirect oper + Y
+                // Load accumulator with data at indirect value + Y
                 // 2 bytes, 5 cycles
                 self.sleep_cycles = 4;
 
-                // set accumulator to oper
+                // set accumulator to value
                 let addr = self.get_addr(AddressingMode::IndirectY);
                 self.acc = self.bus.mem_read(addr);
 
@@ -441,7 +571,7 @@ impl CPU {
                 // 3 bytes, 3 cycles
                 self.sleep_cycles = 2;
 
-                // set PC to oper
+                // set PC to value
                 let addr = self.get_addr(AddressingMode::Absolute);
                 self.pc = self.bus.mem_read_u16(addr);
 
@@ -453,7 +583,7 @@ impl CPU {
                 // 3 bytes, 5 cycles
                 self.sleep_cycles = 4;
 
-                // set PC to oper
+                // set PC to value
                 let addr = self.get_addr(AddressingMode::Indirect);
                 self.pc = self.bus.mem_read_u16(addr);
 
@@ -549,11 +679,11 @@ impl CPU {
 
             // <--| INC |-->
             0xE6 /* <-- [ Zero Page ] --> */ => {
-                // Increment oper at zero page address
+                // Increment value at zero page address
                 // 2 bytes, 5 cycles
                 self.sleep_cycles = 4;
 
-                // increment oper
+                // increment value
                 let addr = self.get_addr(AddressingMode::ZeroPage);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
@@ -565,11 +695,11 @@ impl CPU {
                 self.check_negative(val);
             }
             0xF6 /* <-- [ Zero Page, X ] --> */ => {
-                // Increment oper at zero page address + X
+                // Increment value at zero page address + X
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
 
-                // increment oper
+                // increment value
                 let addr = self.get_addr(AddressingMode::ZeroPageX);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
@@ -581,11 +711,11 @@ impl CPU {
                 self.check_negative(val);
             }
             0xEE /* <-- [ Absolute ] --> */ => {
-                // Increment oper at absolute address
+                // Increment value at absolute address
                 // 3 bytes, 6 cycles
                 self.sleep_cycles = 5;
 
-                // increment oper
+                // increment value
                 let addr = self.get_addr(AddressingMode::Absolute);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
@@ -597,11 +727,11 @@ impl CPU {
                 self.check_negative(val);
             }
             0xFE /* <-- [ Absolute, X ] --> */ => {
-                // Increment oper at absolute address + X
+                // Increment value at absolute address + X
                 // 3 bytes, 7 cycles
                 self.sleep_cycles = 6;
 
-                // increment oper
+                // increment value
                 let addr = self.get_addr(AddressingMode::AbsoluteX);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);

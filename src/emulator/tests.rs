@@ -21,6 +21,8 @@ pub mod tests {
 
         emulator.load_rom(program);
 
+        emulator.toggle_debug();
+
         for _ in 0..cycles {
             emulator.cpu.cycle();
         }
@@ -216,6 +218,114 @@ pub mod tests {
             // Perform assertions
             assert_eq!(emulator.cpu.acc, 0x11);
             assert_eq!(emulator.cpu.status, 0b00000000);
+        }
+    }
+
+    pub mod dec {
+        use crate::emulator::{tests::tests::run, Emulator};
+
+        #[test]
+        fn dec_zp() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0020, 0x01);
+
+            run(&mut emulator, vec![0xC6, 0x20], 5);
+
+            // Perform assertions
+            assert_eq!(emulator.bus.mem_read(0x0020), 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn dec_zp_wrap() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0020, 0x00);
+
+            run(&mut emulator, vec![0xC6, 0x20], 5);
+
+            // Perform assertions
+            assert_eq!(emulator.bus.mem_read(0x0020), 0xFF);
+            assert_eq!(emulator.cpu.status, 0b10000000);
+        }
+
+        #[test]
+        fn dec_zp_x() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.idx_x = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x0025, 0x01);
+
+            run(&mut emulator, vec![0xD6, 0x20], 6);
+
+            // Perform assertions
+            assert_eq!(emulator.bus.mem_read(0x0025), 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn dec_abs() {
+            let mut emulator = Emulator::new();
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1020, 0x01);
+
+            run(&mut emulator, vec![0xCE, 0x20, 0x10], 6);
+
+            // Perform assertions
+            assert_eq!(emulator.bus.mem_read(0x1020), 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn dec_abs_x() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.idx_x = 0x05;
+
+            // Load test program into memory
+            emulator.bus.mem_write(0x1025, 0x01);
+
+            run(&mut emulator, vec![0xDE, 0x20, 0x10], 7);
+
+            // Perform assertions
+            assert_eq!(emulator.bus.mem_read(0x1025), 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+    }
+
+    pub mod dex {
+        use crate::emulator::{tests::tests::run, Emulator};
+
+        #[test]
+        fn dex() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.idx_x = 0x01;
+
+            run(&mut emulator, vec![0xCA], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0x00);
+            assert_eq!(emulator.cpu.status, 0b00000010);
+        }
+
+        #[test]
+        fn dex_wrap() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.idx_x = 0x00;
+
+            run(&mut emulator, vec![0xCA], 2);
+
+            // Perform assertions
+            assert_eq!(emulator.cpu.idx_x, 0xFF);
+            assert_eq!(emulator.cpu.status, 0b10000000);
         }
     }
 
@@ -560,6 +670,21 @@ pub mod tests {
         }
 
         #[test]
+        fn inc_zp_wrapping() {
+            let mut emulator = Emulator::new();
+
+            emulator.bus.mem_write(0x0010, 0xFF);
+
+            run(
+                &mut emulator,
+                vec![0xE6, 0x10, 0xE6, 0x10, 0xE6, 0x10, 0xE6, 0x10, 0xE6, 0x10],
+                5 * 5,
+            );
+
+            assert_eq!(emulator.bus.mem_read(0x0010), 0x04);
+        }
+
+        #[test]
         fn inc_zp_x() {
             let mut emulator = Emulator::new();
 
@@ -750,5 +875,5 @@ pub mod tests {
         }
     }
 
-    
+
 }
