@@ -585,6 +585,38 @@ impl CPU {
                 self.check_negative(value);
             }
 
+            // // <--| BRK |-->
+            // 0x00 /* <-- [ Implied ] --> */ => {
+            //     // Force interrupt
+            //     // 1 byte, 7 cycles
+            //     self.sleep_cycles = 6;
+
+            //     if self.debug_mode { print!("BRK: Implied | "); }
+
+            //     self.set_flag(StatusFlag::Break);
+            //     self.push_stack(((self.pc + 2) >> 8) as u8);
+            //     self.push_stack((self.pc + 2) as u8);
+            //     self.push_stack(self.status | 0b00110000);
+            //     self.set_flag(StatusFlag::Interrupt);
+            //     self.pc = self.bus.mem_read_u16(0xFFFE);
+
+            //     dont_increment_pc = true;
+            // }
+
+            // // <--| RTI |-->
+            // 0x40 /* <-- [ Implied ] --> */ => {
+            //     // Return from interrupt
+            //     // 1 byte, 6 cycles
+            //     self.sleep_cycles = 5;
+
+            //     if self.debug_mode { print!("RTI: Implied | "); }
+
+            //     self.status = self.pop_stack();
+            //     self.pc = self.pop_stack() as u16 | ((self.pop_stack() as u16) << 8);
+
+            //     dont_increment_pc = true;
+            // }
+
             // <--| CLC |-->
             0x18 /* <-- [ Implied ] --> */ => {
                 // Clear carry flag
@@ -1055,6 +1087,118 @@ impl CPU {
                 self.check_negative(self.idx_y);
             }
 
+            // <--| LSR |-->
+            0x4A /* <-- [ Accumulator ] --> */ => {
+                // Shift right accumulator
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("LSR: Accumulator | "); }
+
+                if self.acc & 0x1 == 1 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+                
+                self.acc >>= 1;
+                
+                self.check_zero(self.acc);
+                self.clear_flag(StatusFlag::Negative);
+            }
+            0x46 /* <-- [ Zero Page ] --> */ => {
+                // Shift right zero page value
+                // 2 bytes, 5 cycles
+                self.sleep_cycles = 4;
+
+                if self.debug_mode { print!("LSR: Zero Page | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                let mut val = self.bus.mem_read(addr);
+
+                if val & 0x1 == 1 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                val >>= 1;
+
+                self.bus.mem_write(addr, val);
+
+                self.check_zero(val);
+                self.clear_flag(StatusFlag::Negative);
+            }
+            0x56 /* <-- [ Zero Page, X ] --> */ => {
+                // Shift right zero page value + X
+                // 2 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("LSR: Zero Page, X | "); }
+
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                let mut val = self.bus.mem_read(addr);
+
+                if val & 0x1 == 1 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                val >>= 1;
+
+                self.bus.mem_write(addr, val);
+
+                self.check_zero(val);
+                self.clear_flag(StatusFlag::Negative);
+            }
+            0x4E /* <-- [ Absolute ] --> */ => {
+                // Shift right absolute value
+                // 3 bytes, 6 cycles
+                self.sleep_cycles = 5;
+
+                if self.debug_mode { print!("LSR: Absolute | "); }
+
+                let addr = self.get_addr(AddressingMode::Absolute);
+                let mut val = self.bus.mem_read(addr);
+
+                if val & 0x1 == 1 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                val >>= 1;
+
+                self.bus.mem_write(addr, val);
+
+                self.check_zero(val);
+                self.clear_flag(StatusFlag::Negative);
+            }
+            0x5E /* <-- [ Absolute, X ] --> */ => {
+                // Shift right absolute value + X
+                // 3 bytes, 7 cycles
+                self.sleep_cycles = 6;
+
+                if self.debug_mode { print!("LSR: Absolute, X | "); }
+
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                let mut val = self.bus.mem_read(addr);
+
+                if val & 0x1 == 1 {
+                    self.set_flag(StatusFlag::Carry);
+                } else {
+                    self.clear_flag(StatusFlag::Carry);
+                }
+
+                val >>= 1;
+
+                self.bus.mem_write(addr, val);
+
+                self.check_zero(val);
+                self.clear_flag(StatusFlag::Negative);
+            }
+
             // <--| JMP |-->
             0x4C /* <-- [ Absolute ] --> */ => {
                 // Jump to absolute address
@@ -1165,6 +1309,82 @@ impl CPU {
 
                 // skip next byte
                 self.pc += 1;
+            }
+
+            // <--| STX |-->
+            0x86 /* <-- [ Zero Page ] --> */ => {
+                // Store X at zero page address
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                // set memory to X
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                self.bus.mem_write(addr, self.idx_x);
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x96 /* <-- [ Zero Page, Y ] --> */ => {
+                // Store X at zero page address + Y
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to X
+                let addr = self.get_addr(AddressingMode::ZeroPageY);
+                self.bus.mem_write(addr, self.idx_x);
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x8E /* <-- [ Absolute ] --> */ => {
+                // Store X at absolute address
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to X
+                let addr = self.get_addr(AddressingMode::Absolute);
+                self.bus.mem_write(addr, self.idx_x);
+
+                // skip next 2 bytes
+                self.pc += 2;
+            }
+
+            // <--| STY |-->
+            0x84 /* <-- [ Zero Page ] --> */ => {
+                // Store Y at zero page address
+                // 2 bytes, 3 cycles
+                self.sleep_cycles = 2;
+
+                // set memory to Y
+                let addr = self.get_addr(AddressingMode::ZeroPage);
+                self.bus.mem_write(addr, self.idx_y);
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x94 /* <-- [ Zero Page, X ] --> */ => {
+                // Store Y at zero page address + X
+                // 2 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to Y
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
+                self.bus.mem_write(addr, self.idx_y);
+
+                // skip next byte
+                self.pc += 1;
+            }
+            0x8C /* <-- [ Absolute ] --> */ => {
+                // Store Y at absolute address
+                // 3 bytes, 4 cycles
+                self.sleep_cycles = 3;
+
+                // set memory to Y
+                let addr = self.get_addr(AddressingMode::Absolute);
+                self.bus.mem_write(addr, self.idx_y);
+
+                // skip next 2 bytes
+                self.pc += 2;
             }
 
             // <--| INC |-->
@@ -1281,6 +1501,51 @@ impl CPU {
                 self.check_negative(self.idx_y);
             }
 
+            // <--| TSX |-->
+            0xBA /* <-- [ None ] --> */ => {
+                // Transfer stack pointer to index X
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.idx_x = self.sp;
+
+                self.check_zero(self.idx_x);
+                self.check_negative(self.idx_x);
+            }
+
+            // <--| TXA |-->
+            0x8A /* <-- [ None ] --> */ => {
+                // Transfer index X to accumulator
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.acc = self.idx_x;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+
+            // <--| TXS |-->
+            0x9A /* <-- [ None ] --> */ => {
+                // Transfer index X to stack pointer
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.sp = self.idx_x;
+            }
+
+            // <--| TYA |-->
+            0x98 /* <-- [ None ] --> */ => {
+                // Transfer index Y to accumulator
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.acc = self.idx_y;
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }  
+
             // <--| NOP |-->
             0xEA /* <-- [ None ] --> */ => {
                 // No operation
@@ -1316,6 +1581,33 @@ impl CPU {
                 self.pc = ((high_byte as u16) << 8) | (low_byte as u16);
 
                 // PC will be incremented after this, so no need to +1
+            }
+
+            // <--| SEC |-->
+            0x38 /* <-- [ None ] --> */ => {
+                // Set carry flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.set_flag(StatusFlag::Carry);
+            }
+
+            // <--| SED |-->
+            0xF8 /* <-- [ None ] --> */ => {
+                // Set decimal flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.set_flag(StatusFlag::Decimal);
+            }
+
+            // <--| SEI |-->
+            0x78 /* <-- [ None ] --> */ => {
+                // Set interrupt disable flag
+                // 1 byte, 2 cycles
+                self.sleep_cycles = 1;
+
+                self.set_flag(StatusFlag::Interrupt);
             }
 
             // <--| PHP |--> 
