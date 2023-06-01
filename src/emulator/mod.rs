@@ -32,6 +32,10 @@ impl Emulator {
         }
     }
 
+    pub fn toggle_debug(&mut self) {
+        self.cpu.debug_mode = !self.cpu.debug_mode;
+    }
+
     pub fn load_rom(&mut self, rom_bytes: Vec<u8>) {
         // let rom_bytes =  // read rom bytes from file
         //     std::fs::read(rom_path)

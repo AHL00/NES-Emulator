@@ -9,6 +9,7 @@ pub struct CPU {
     pub idx_x: u8,
     pub idx_y: u8,
     pub status: u8,
+    pub debug_mode: bool,
     bus: Rc<Bus>,
     sleep_cycles: u8, // counter for sleep cycles
 }
@@ -22,6 +23,7 @@ impl CPU {
             idx_x: 0,
             idx_y: 0,
             status: 0,
+            debug_mode: false,
             bus,
             sleep_cycles: 0,
         }
@@ -43,8 +45,9 @@ impl CPU {
     }
 
     #[inline]
-    fn check_page_cross(&self, addr: u16) -> bool {
-        if self.get_addr_from_operand(AddressingMode::Absolute) & 0xFF00 != addr & 0xFF00 {
+    fn check_page_cross(&self, addr_1: u16, addr_2: u16) -> bool {
+        if addr_1 & 0xFF00 != addr_2 & 0xFF00 {
+            if self.debug_mode { print!("Page crossed | ") };
             true
         } else {
             false
@@ -88,27 +91,27 @@ impl CPU {
     }
 
     #[inline]
-    fn push_stack(&mut self, oper: u8) {
+    pub fn push_stack(&mut self, oper: u8) {
         self.bus.mem_write(0x0100 + self.sp as u16, oper);
         self.sp = self.sp.wrapping_sub(1);
     }
 
     #[inline]
-    fn pop_stack(&mut self) -> u8 {
+    pub fn pop_stack(&mut self) -> u8 {
         self.sp = self.sp.wrapping_add(1);
-        self.bus.mem_read(0x0100 + self.sp as u16)
+        let res = self.bus.mem_read(0x0100 + self.sp as u16);
+        res
     }
 
     pub fn cycle(&mut self) {
-        //print!("PC: {:04X} | ", self.pc);
+        if self.debug_mode { print!("{:04X} | ", self.pc) };
         // sleep for cycles until sleep_cycles is 0
         if self.sleep_cycles > 0 {
             self.sleep_cycles -= 1;
-            //println!("/\\ sleeping");
+            if self.debug_mode { println!("/\\ sleeping") };
             return;
         }
-        //println!();
-
+        
         // Fetch
         let opcode = self.bus.mem_read(self.pc);
         let mut dont_increment_pc = false;
@@ -121,7 +124,7 @@ impl CPU {
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
 
-                let addr = self.get_addr_from_operand(AddressingMode::Immediate);
+                let addr = self.get_addr(AddressingMode::Immediate);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
@@ -141,7 +144,7 @@ impl CPU {
                 // 2 bytes, 3 cycles
                 self.sleep_cycles = 2;
 
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPage);
+                let addr = self.get_addr(AddressingMode::ZeroPage);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
@@ -161,7 +164,7 @@ impl CPU {
                 // 2 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPageX);
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
@@ -181,7 +184,7 @@ impl CPU {
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                let addr = self.get_addr_from_operand(AddressingMode::Absolute);
+                let addr = self.get_addr(AddressingMode::Absolute);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
@@ -201,20 +204,20 @@ impl CPU {
                 // 3 bytes, 4 cycles (+1 if page crossed)
                 self.sleep_cycles = 3;
 
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteX);
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
                 let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
-                // skip next 2 bytes
-                self.pc += 2;
-
                 // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
                     self.sleep_cycles += 1;
                 }
+                
+                // skip next 2 bytes
+                self.pc += 2;
                 
                 self.check_add_overflow(sum as u8, before_sum, oper);               
                 self.check_add_carry(sum);
@@ -226,20 +229,20 @@ impl CPU {
                 // 3 bytes, 4 cycles (+1 if page crossed)
                 self.sleep_cycles = 3;
 
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteY);
+                let addr = self.get_addr(AddressingMode::AbsoluteY);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
                 let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
-                // skip next 2 bytes
-                self.pc += 2;
-
                 // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
                     self.sleep_cycles += 1;
                 }
+                
+                // skip next 2 bytes
+                self.pc += 2;
                 
                 self.check_add_overflow(sum as u8, before_sum, oper);               
                 self.check_add_carry(sum);
@@ -251,7 +254,7 @@ impl CPU {
                 // 2 bytes, 6 cycles
                 self.sleep_cycles = 5;
 
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectX);
+                let addr = self.get_addr(AddressingMode::IndirectX);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
@@ -271,20 +274,20 @@ impl CPU {
                 // 2 bytes, 5 cycles (+1 if page crossed)
                 self.sleep_cycles = 4;
 
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectY);
+                let addr = self.get_addr(AddressingMode::IndirectY);
                 let oper = self.bus.mem_read(addr);
 
                 let before_sum = self.acc;
                 let sum = self.acc as u16 + oper as u16 + self.get_flag(StatusFlag::Carry) as u16;
                 self.acc = sum as u8;
 
-                // skip next byte
-                self.pc += 1;
-
                 // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Indirect)) {
                     self.sleep_cycles += 1;
                 }
+                
+                // skip next byte
+                self.pc += 1;
                 
                 self.check_add_overflow(sum as u8, before_sum, oper);               
                 self.check_add_carry(sum);
@@ -298,7 +301,7 @@ impl CPU {
                 // 2 bytes, 2 cycles
                 self.sleep_cycles = 1;
 
-                let addr = self.get_addr_from_operand(AddressingMode::Immediate);
+                let addr = self.get_addr(AddressingMode::Immediate);
                 self.acc = self.bus.mem_read(addr);
 
                 // skip next byte
@@ -313,7 +316,7 @@ impl CPU {
                 self.sleep_cycles = 2;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPage);
+                let addr = self.get_addr(AddressingMode::ZeroPage);
                 self.acc = self.bus.mem_read(addr);
 
                 // skip next byte
@@ -328,7 +331,7 @@ impl CPU {
                 self.sleep_cycles = 3;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPageX);
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
                 self.acc = self.bus.mem_read(addr);
 
                 // skip next byte
@@ -343,7 +346,7 @@ impl CPU {
                 self.sleep_cycles = 3;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::Absolute);
+                let addr = self.get_addr(AddressingMode::Absolute);
                 self.acc = self.bus.mem_read(addr);
 
                 // skip next 2 bytes
@@ -357,18 +360,22 @@ impl CPU {
                 // 3 bytes, 4 cycles
                 self.sleep_cycles = 3;
 
-                // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteX);
-                self.acc = self.bus.mem_read(addr);
-
-                // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
-                    self.sleep_cycles += 1;
+                if self.debug_mode {
+                    print!("LDA: Absolute, X | ");
                 }
 
+                // set accumulator to oper
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
+                self.acc = self.bus.mem_read(addr);
+                
+                // if page crossed, add 1 cycle
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
+                    self.sleep_cycles += 1;
+                }
+                
                 // skip next 2 bytes
                 self.pc += 2;
-
+                
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
@@ -378,17 +385,17 @@ impl CPU {
                 self.sleep_cycles = 3;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteY);
+                let addr = self.get_addr(AddressingMode::AbsoluteY);
                 self.acc = self.bus.mem_read(addr);
-
+                
                 // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Absolute)) {
                     self.sleep_cycles += 1;
                 }
-
+                
                 // skip next 2 bytes
                 self.pc += 2;
-
+                
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
@@ -398,7 +405,7 @@ impl CPU {
                 self.sleep_cycles = 5;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectX);
+                let addr = self.get_addr(AddressingMode::IndirectX);
                 self.acc = self.bus.mem_read(addr);
 
                 // skip next byte
@@ -413,17 +420,17 @@ impl CPU {
                 self.sleep_cycles = 4;
 
                 // set accumulator to oper
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectY);
+                let addr = self.get_addr(AddressingMode::IndirectY);
                 self.acc = self.bus.mem_read(addr);
 
                 // if page crossed, add 1 cycle
-                if self.check_page_cross(addr) {
+                if self.check_page_cross(addr, self.get_addr(AddressingMode::Indirect)) {
                     self.sleep_cycles += 1;
                 }
-
+                
                 // skip next byte
                 self.pc += 1;
-
+                
                 self.check_zero(self.acc);
                 self.check_negative(self.acc);
             }
@@ -435,7 +442,7 @@ impl CPU {
                 self.sleep_cycles = 2;
 
                 // set PC to oper
-                let addr = self.get_addr_from_operand(AddressingMode::Absolute);
+                let addr = self.get_addr(AddressingMode::Absolute);
                 self.pc = self.bus.mem_read_u16(addr);
 
                 // PC is incremented at end of cycle
@@ -447,7 +454,7 @@ impl CPU {
                 self.sleep_cycles = 4;
 
                 // set PC to oper
-                let addr = self.get_addr_from_operand(AddressingMode::Indirect);
+                let addr = self.get_addr(AddressingMode::Indirect);
                 self.pc = self.bus.mem_read_u16(addr);
 
                 // PC is incremented at end of cycle
@@ -461,7 +468,7 @@ impl CPU {
                 self.sleep_cycles = 2;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPage);
+                let addr = self.get_addr(AddressingMode::ZeroPage);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next byte
@@ -473,7 +480,7 @@ impl CPU {
                 self.sleep_cycles = 3;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPageX);
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next byte
@@ -485,7 +492,7 @@ impl CPU {
                 self.sleep_cycles = 3;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::Absolute);
+                let addr = self.get_addr(AddressingMode::Absolute);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next 2 bytes
@@ -497,7 +504,7 @@ impl CPU {
                 self.sleep_cycles = 4;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteX);
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next 2 bytes
@@ -509,7 +516,7 @@ impl CPU {
                 self.sleep_cycles = 4;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteY);
+                let addr = self.get_addr(AddressingMode::AbsoluteY);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next 2 bytes
@@ -521,7 +528,7 @@ impl CPU {
                 self.sleep_cycles = 5;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectX);
+                let addr = self.get_addr(AddressingMode::IndirectX);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next byte
@@ -533,7 +540,7 @@ impl CPU {
                 self.sleep_cycles = 5;
 
                 // set memory to accumulator
-                let addr = self.get_addr_from_operand(AddressingMode::IndirectY);
+                let addr = self.get_addr(AddressingMode::IndirectY);
                 self.bus.mem_write(addr, self.acc);
 
                 // skip next byte
@@ -547,7 +554,7 @@ impl CPU {
                 self.sleep_cycles = 4;
 
                 // increment oper
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPage);
+                let addr = self.get_addr(AddressingMode::ZeroPage);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
 
@@ -563,7 +570,7 @@ impl CPU {
                 self.sleep_cycles = 5;
 
                 // increment oper
-                let addr = self.get_addr_from_operand(AddressingMode::ZeroPageX);
+                let addr = self.get_addr(AddressingMode::ZeroPageX);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
 
@@ -579,7 +586,7 @@ impl CPU {
                 self.sleep_cycles = 5;
 
                 // increment oper
-                let addr = self.get_addr_from_operand(AddressingMode::Absolute);
+                let addr = self.get_addr(AddressingMode::Absolute);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
 
@@ -595,7 +602,7 @@ impl CPU {
                 self.sleep_cycles = 6;
 
                 // increment oper
-                let addr = self.get_addr_from_operand(AddressingMode::AbsoluteX);
+                let addr = self.get_addr(AddressingMode::AbsoluteX);
                 let val = self.bus.mem_read(addr).wrapping_add(1);
                 self.bus.mem_write(addr, val);
 
@@ -672,7 +679,7 @@ impl CPU {
                 self.push_stack((self.pc >> 8) as u8); // high byte
 
                 // set PC to address
-                self.pc = self.get_addr_from_operand(AddressingMode::Absolute);
+                self.pc = self.get_addr(AddressingMode::Absolute);
 
                 dont_increment_pc = true;
             }
@@ -691,10 +698,53 @@ impl CPU {
                 // PC will be incremented after this, so no need to +1
             }
 
+            // <--| PHP |--> 
+            0x08 /* <-- [ None ] --> */ => {
+                // Push processor status to stack
+                // 1 byte, 3 cycles
+                self.sleep_cycles = 2;
 
+                // push status, set bit 6 and 5 to 1
+                self.push_stack(self.status | 0b00110000);
+            }
 
-            _ => { }//unimplemented!("Opcode {:#X} not implemented", opcode)},
+            // <--| PHA |--> 
+            0x48 /* <-- [ None ] --> */ => {
+                // Push accumulator to stack
+                // 1 byte, 3 cycles
+                self.sleep_cycles = 2;
+
+                self.push_stack(self.acc);
+            }
+            
+            // <--| PLP |-->
+            0x28 /* <-- [ None ] --> */ => {
+                // Pull processor status from stack
+                // 1 byte, 4 cycles
+                self.sleep_cycles = 3;
+
+                // pull status, ignore bit 5 and 4
+                self.status = self.pop_stack() & 0b11001111;
+            }
+            
+            // <--| PLA |-->
+            0x68 /* <-- [ None ] --> */ => {
+                // Pull accumulator from stack
+                // 1 byte, 4 cycles
+                self.sleep_cycles = 3;
+
+                self.acc = self.pop_stack();
+
+                self.check_zero(self.acc);
+                self.check_negative(self.acc);
+            }
+            
+            _ => { 
+                if self.debug_mode { print!("Unknown instr | ") };
+            }//unimplemented!("Opcode {:#X} not implemented", opcode)},
         }
+
+        if self.debug_mode { println!() };
 
         // Increment PC
         if !dont_increment_pc {
@@ -703,7 +753,7 @@ impl CPU {
     }
 
     /// Returns the address of the operand for the current instruction, and increments the PC
-    fn get_addr_from_operand(&self, mode: AddressingMode) -> u16 {
+    fn get_addr(&self, mode: AddressingMode) -> u16 {
         match mode {
             AddressingMode::Immediate => {
                 // immediate addressing mode, addr is next byte
@@ -735,8 +785,8 @@ impl CPU {
             }
             AddressingMode::Indirect => {
                 // indirect addressing mode, addr is at data at next 2 bytes
-                let oper = self.bus.mem_read_u16(self.pc + 1);
-                self.bus.mem_read_u16(oper)
+                let oper = self.bus.mem_read(self.pc + 1);
+                self.bus.mem_read_u16(oper as u16)
             }
             AddressingMode::IndirectX => {
                 // indirect X addressing mode, addr is at data at (oper + X)
