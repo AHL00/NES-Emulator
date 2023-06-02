@@ -55,6 +55,23 @@ pub mod tests {
         assert_eq!(emulator.bus.mem_read_u16(0x0000), 0x1020);
     }
 
+    #[test]
+    fn mem_read_signed() {
+        let emulator = Emulator::new();
+
+        emulator.bus.mem_write(0x0000, 0xFF);
+
+        assert_eq!(emulator.bus.mem_read_signed(0x0000), -1);
+    }
+
+    #[test]
+    fn mem_write_signed() {
+        let emulator = Emulator::new();
+
+        emulator.bus.mem_write_signed(0x0000, -1);
+
+        assert_eq!(emulator.bus.mem_read(0x0000), 0xFF);
+    }
 
     pub mod adc {
         use crate::emulator::{tests::tests::run, Emulator};
@@ -504,6 +521,155 @@ pub mod tests {
             assert_eq!(emulator.bus.mem_read(0x1025), 0b10000000);
             assert_eq!(emulator.cpu.status, 0b10000000);
         }
+    }
+
+    pub mod branch {
+        use crate::emulator::{Emulator, tests::tests::run};
+
+        #[test]
+        fn bcc_no_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000000;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0x90, 0x05, 0x00, 0x00, 0x00], 3);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8005);
+        }
+
+        #[test]
+        fn bcc_no_cross_no_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000001;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0x90, 0x05, 0x00, 0x00, 0x00], 2);
+            
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8002);
+        }
+
+        #[test]
+        fn bcc_neg_page_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000000;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x7989
+            run(&mut emulator, vec![0x90, 0xF5, 0x00, 0x00, 0x00], 
+                5);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x7FF5);
+        }
+
+        #[test]
+        fn bcs_no_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000001;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0xB0, 0x05, 0x00, 0x00, 0x00], 3);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8005);
+        }
+
+        #[test]
+        fn bcs_no_cross_no_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000000;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0xB0, 0x05, 0x00, 0x00, 0x00], 2);
+            
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8002);
+        }
+
+        #[test]
+        fn bcs_neg_page_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000001;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x7989
+            run(&mut emulator, vec![0xB0, 0xF5, 0x00, 0x00, 0x00], 
+                5);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x7FF5);
+        }
+
+        #[test]
+        fn beq_no_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000010;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0xF0, 0x05, 0x00, 0x00, 0x00], 3);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8005);
+        }
+
+        #[test]
+        fn beq_no_cross_no_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000000;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8005
+            run(&mut emulator, vec![0xF0, 0x05, 0x00, 0x00, 0x00], 2);
+            
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8002);
+        }
+
+        #[test]
+        fn beq_neg_page_cross_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000010;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x7989
+            run(&mut emulator, vec![0xF0, 0xF5, 0x00, 0x00, 0x00], 
+                5);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x7FF5);
+        }
+
+        #[test]
+        fn beq_page_cross_no_branch() {
+            let mut emulator = Emulator::new();
+
+            emulator.cpu.status = 0b00000000;
+
+            // load test program to memory and set PC to it
+            // if cycles are correct, PC should be 0x8000
+            run(&mut emulator, vec![0xF0, 0xF5, 0x00, 0x00, 0x00], 
+                3);
+
+            assert_eq!(emulator.cpu.sleep_cycles, 0);
+            assert_eq!(emulator.cpu.pc, 0x8002);
+        }
+        
     }
 
     pub mod flags {

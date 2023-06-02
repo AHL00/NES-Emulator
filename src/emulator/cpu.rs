@@ -11,7 +11,7 @@ pub struct CPU {
     pub status: u8,
     pub debug_mode: bool,
     bus: Rc<Bus>,
-    sleep_cycles: u8, // counter for sleep cycles
+    pub sleep_cycles: u8, // counter for sleep cycles
 }
 
 impl CPU {
@@ -108,7 +108,7 @@ impl CPU {
         // sleep for cycles until sleep_cycles is 0
         if self.sleep_cycles > 0 {
             self.sleep_cycles -= 1;
-            if self.debug_mode { println!("/\\ sleeping") };
+            if self.debug_mode { println!("/\\ sleeping |") };
             return;
         }
         
@@ -584,6 +584,116 @@ impl CPU {
                 self.check_zero(value);
                 self.check_negative(value);
             }
+
+            // <--| BCC |-->
+            0x90 /* <-- [ Relative ] --> */ => {
+                // Branch if carry clear
+                // 2 bytes, 2 cycles (+1 if page crossed) (add another cycle if branch succeeds, another if page crossed)
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("BCC: Relative | "); }
+            
+                let addr = self.get_addr(AddressingMode::Relative);
+            
+                // Check for page crossing
+                let page_crossed = self.check_page_cross(addr, self.pc);
+                if page_crossed {
+                    self.sleep_cycles += 1;
+                }
+            
+                if !self.get_flag(StatusFlag::Carry) {
+                    if self.debug_mode { print!("-> {:4X} | ", addr); }
+            
+                    // Branch to new address
+                    self.pc = addr;
+            
+                    self.sleep_cycles += 1;
+                    if page_crossed {
+                        self.sleep_cycles += 1;
+                    }
+            
+                    dont_increment_pc = true;
+                } else {
+                    if self.debug_mode { print!("Not branched | "); }
+            
+                    // Skip next byte
+                    self.pc += 1;
+                }
+            }
+
+            // <--| BCS |-->
+            0xB0 /* <-- [ Relative ] --> */ => {
+                // Branch if carry set
+                // 2 bytes, 2 cycles (+1 if page crossed) (add another cycle if branch succeeds, another if page crossed)
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("BCS: Relative | "); }
+            
+                let addr = self.get_addr(AddressingMode::Relative);
+            
+                // Check for page crossing
+                let page_crossed = self.check_page_cross(addr, self.pc);
+                if page_crossed {
+                    self.sleep_cycles += 1;
+                }
+            
+                if self.get_flag(StatusFlag::Carry) {
+                    if self.debug_mode { print!("-> {:4X} | ", addr); }
+            
+                    // Branch to new address
+                    self.pc = addr;
+            
+                    self.sleep_cycles += 1;
+                    if page_crossed {
+                        self.sleep_cycles += 1;
+                    }
+            
+                    dont_increment_pc = true;
+                } else {
+                    if self.debug_mode { print!("Not branched | "); }
+            
+                    // Skip next byte
+                    self.pc += 1;
+                }
+            }
+
+            // <--| BEQ |-->
+            0xF0 /* <-- [ Relative ] --> */ => {
+                // Branch if equal
+                // 2 bytes, 2 cycles (+1 if page crossed) (add another cycle if branch succeeds, another if page crossed)
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("BEQ: Relative | "); }
+            
+                let addr = self.get_addr(AddressingMode::Relative);
+            
+                // Check for page crossing
+                let page_crossed = self.check_page_cross(addr, self.pc);
+                if page_crossed {
+                    self.sleep_cycles += 1;
+                }
+            
+                if self.get_flag(StatusFlag::Zero) {
+                    if self.debug_mode { print!("-> {:4X} | ", addr); }
+            
+                    // Branch to new address
+                    self.pc = addr;
+            
+                    self.sleep_cycles += 1;
+                    if page_crossed {
+                        self.sleep_cycles += 1;
+                    }
+            
+                    dont_increment_pc = true;
+                } else {
+                    if self.debug_mode { print!("Not branched | "); }
+            
+                    // Skip next byte
+                    self.pc += 1;
+                }
+            }
+
+            
 
             // // <--| BRK |-->
             // 0x00 /* <-- [ Implied ] --> */ => {
@@ -1716,6 +1826,11 @@ impl CPU {
                     .mem_read_u16(oper as u16)
                     .wrapping_add(self.idx_y as u16)
             }
+            AddressingMode::Relative => {
+                // add relative offset to PC
+                let oper = self.bus.mem_read_signed(self.pc + 1);
+                self.pc.wrapping_add_signed(oper as i16)
+            }
         }
     }
 }
@@ -1746,4 +1861,5 @@ enum AddressingMode {
     Indirect,
     IndirectX,
     IndirectY,
+    Relative,
 }

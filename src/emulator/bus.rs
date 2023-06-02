@@ -25,6 +25,10 @@ impl Bus {
         }  
     }
 
+    pub fn mem_read_signed(&self, addr: u16) -> i8 {
+        self.mem_read(addr) as i8
+    }
+
     pub fn mem_write(&self, addr: u16, data: u8) {
         match addr {
             0x0000..=0x1FFF => self.ram.borrow_mut()[addr & 0x07FF] = data, // RAM
@@ -34,6 +38,10 @@ impl Bus {
             0x6000..=0x7FFF => panic!("Not implemented!"),          // SRAM
             0x8000..=0xFFFF => panic!("Attempted to write to program rom!"), // PRG-ROM
         }  
+    }
+
+    pub fn mem_write_signed(&self, addr: u16, data: i8) {
+        self.mem_write(addr, data as u8);
     }
 
     /// Only works from 0x0000 to 0x1FFF
