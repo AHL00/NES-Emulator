@@ -13,7 +13,7 @@ use std::{
 use graphics::Graphics;
 use sdl2::event::Event;
 
-pub fn main() -> Result<(), String> {
+fn main() -> Result<(), String> {
     let mut gfx = Graphics::new();
 
     let iters_last_sec = Arc::new(Mutex::new(0));

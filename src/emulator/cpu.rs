@@ -693,7 +693,77 @@ impl CPU {
                 }
             }
 
+            // <--| BMI |-->
+            0x30 /* <-- [ Relative ] --> */ => {
+                // Branch if minus
+                // 2 bytes, 2 cycles (+1 if page crossed) (add another cycle if branch succeeds, another if page crossed)
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("BMI: Relative | "); }
             
+                let addr = self.get_addr(AddressingMode::Relative);
+            
+                // Check for page crossing
+                let page_crossed = self.check_page_cross(addr, self.pc);
+                if page_crossed {
+                    self.sleep_cycles += 1;
+                }
+            
+                if self.get_flag(StatusFlag::Negative) {
+                    if self.debug_mode { print!("-> {:4X} | ", addr); }
+            
+                    // Branch to new address
+                    self.pc = addr;
+            
+                    self.sleep_cycles += 1;
+                    if page_crossed {
+                        self.sleep_cycles += 1;
+                    }
+            
+                    dont_increment_pc = true;
+                } else {
+                    if self.debug_mode { print!("Not branched | "); }
+            
+                    // Skip next byte
+                    self.pc += 1;
+                }
+            }
+
+            // <--| BNE |-->
+            0xD0 /* <-- [ Relative ] --> */ => {
+                // Branch if not equal
+                // 2 bytes, 2 cycles (+1 if page crossed) (add another cycle if branch succeeds, another if page crossed)
+                self.sleep_cycles = 1;
+
+                if self.debug_mode { print!("BNE: Relative | "); }
+            
+                let addr = self.get_addr(AddressingMode::Relative);
+            
+                // Check for page crossing
+                let page_crossed = self.check_page_cross(addr, self.pc);
+                if page_crossed {
+                    self.sleep_cycles += 1;
+                }
+            
+                if !self.get_flag(StatusFlag::Zero) {
+                    if self.debug_mode { print!("-> {:4X} | ", addr); }
+            
+                    // Branch to new address
+                    self.pc = addr;
+            
+                    self.sleep_cycles += 1;
+                    if page_crossed {
+                        self.sleep_cycles += 1;
+                    }
+            
+                    dont_increment_pc = true;
+                } else {
+                    if self.debug_mode { print!("Not branched | "); }
+            
+                    // Skip next byte
+                    self.pc += 1;
+                }
+            }
 
             // // <--| BRK |-->
             // 0x00 /* <-- [ Implied ] --> */ => {
